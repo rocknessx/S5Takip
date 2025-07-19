@@ -12,7 +12,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Üst kısım - Başlık ve Kullanıcı Bilgisi -->
+        <!-- Üst kısım - Başlık ve Grup Bilgisi -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -20,13 +20,52 @@
             android:orientation="vertical"
             android:padding="20dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- Grup Adı ve Ayarlar -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/app_name"
-                android:textColor="@color/white"
-                android:textSize="28sp"
-                android:textStyle="bold" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/app_name"
+                        android:textColor="@color/white"
+                        android:textSize="28sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_group_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Grup Adı"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:alpha="0.9"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+
+                <!-- Grup Ayarları Butonu -->
+                <Button
+                    android:id="@+id/btn_group_settings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚙️ Ayarlar"
+                    android:textSize="12sp"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:textColor="@color/white"
+                    android:visibility="gone" />
+
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tv_welcome"
@@ -45,6 +84,29 @@
                 android:text=""
                 android:textColor="@color/white"
                 android:textSize="14sp" />
+
+            <!-- Bugünün Denetmeni -->
+            <TextView
+                android:id="@+id/tv_todays_auditor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Bugünün Denetmeni: Yükleniyor..."
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tv_auditor_info"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Denetmen bilgisi"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:alpha="0.8"
+                android:visibility="gone" />
 
         </LinearLayout>
 
@@ -204,7 +266,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                    <!-- Problem Ekle Butonu (Sadece Denetmenler için) -->
+                    <!-- Problem Ekle Butonu -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_add_problem"
                         android:layout_width="match_parent"
@@ -228,7 +290,7 @@
                         app:iconGravity="start"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
-                    <!-- Rapor Oluştur Butonu (Sadece Denetmenler için) -->
+                    <!-- Rapor Oluştur Butonu -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_generate_report"
                         android:layout_width="match_parent"
@@ -245,7 +307,7 @@
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Kullanıcı Değiştir -->
+        <!-- Kullanıcı Profili Kartı -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -259,6 +321,17 @@
                 android:orientation="horizontal"
                 android:padding="20dp"
                 android:gravity="center_vertical">
+
+                <!-- Profil Fotoğrafı -->
+                <ImageView
+                    android:id="@+id/iv_user_profile"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:layout_marginEnd="16dp"
+                    android:src="@android:drawable/ic_menu_myplaces"
+                    android:scaleType="centerCrop"
+                    android:background="@color/gray_light"
+                    android:visibility="gone" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -285,11 +358,23 @@
 
                 </LinearLayout>
 
+                <!-- Profil Düzenleme Butonu -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_edit_profile"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:text="Düzenle"
+                    android:textSize="12sp"
+                    style="@style/Widget.MaterialComponents.Button.TextButton" />
+
+                <!-- Kullanıcı Değiştir Butonu -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_change_user"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Değiştir"
+                    android:textSize="12sp"
                     style="@style/Widget.MaterialComponents.Button.TextButton" />
 
             </LinearLayout>

@@ -61,16 +61,17 @@ data class User(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val email: String,
-    val department: String = "Genel", // Default değer eklendi
+    val department: String = "Genel",
     val role: UserRole,
     val createdAt: Long = System.currentTimeMillis()
 )
 
 /**
- * Problem modeli
+ * Problem modeli - Grup ID'si eklendi
  */
 data class Problem(
     val id: String = UUID.randomUUID().toString(),
+    val groupId: String = "", // Hangi gruba ait olduğu
     val description: String,
     val location: String,
     val priority: ProblemPriority,
@@ -82,10 +83,11 @@ data class Problem(
 )
 
 /**
- * Çözüm modeli
+ * Çözüm modeli - Grup ID'si eklendi
  */
 data class Solution(
     val id: String = UUID.randomUUID().toString(),
+    val groupId: String = "", // Hangi gruba ait olduğu
     val problemId: String,
     val userId: String,
     val userName: String,
@@ -100,11 +102,11 @@ data class Solution(
  */
 data class DailyStats(
     val date: String,
-    val totalProblems: Int = 0,        // Default değer eklendi
-    val openProblems: Int = 0,         // Default değer eklendi
-    val inProgressProblems: Int = 0,   // Default değer eklendi
-    val resolvedProblems: Int = 0,     // Default değer eklendi
-    val verifiedProblems: Int = 0      // Default değer eklendi
+    val totalProblems: Int = 0,
+    val openProblems: Int = 0,
+    val inProgressProblems: Int = 0,
+    val resolvedProblems: Int = 0,
+    val verifiedProblems: Int = 0
 ) {
     val resolutionRate: Double
         get() = if (totalProblems > 0) {
