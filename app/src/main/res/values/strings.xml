@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">5S Takip</string>
+
+    <!-- Giriş ekranı metinleri -->
+    <string name="welcome">5S Takip Sistemine Hoş Geldiniz</string>
+    <string name="name">Ad Soyad</string>
+    <string name="email">E-posta</string>
+    <string name="department">Departman</string>
+    <string name="role">Rol</string>
+    <string name="login">Giriş Yap</string>
+    <string name="role_auditor">Denetmen</string>
+    <string name="role_user">Kullanıcı</string>
+
+    <!-- Ana sayfa -->
+    <string name="dashboard">Ana Sayfa</string>
+    <string name="problems">Problemler</string>
+    <string name="add_problem">Problem Ekle</string>
+    <string name="reports">Raporlar</string>
+
+    <!-- Problem ekleme -->
+    <string name="problem_description">Problem Açıklaması</string>
+    <string name="location">Konum (Örn: A-Blok Kalıp Üretim)</string>
+    <string name="take_photo">Fotoğraf Çek</string>
+    <string name="save">Kaydet</string>
+    <string name="cancel">İptal</string>
+
+    <!-- Çözüm ekleme -->
+    <string name="solution_description">Çözüm Açıklaması</string>
+    <string name="solution_photo">Çözüm Fotoğrafı</string>
+    <string name="add_solution">Çözüm Ekle</string>
+
+    <!-- Durum mesajları -->
+    <string name="loading">Yükleniyor...</string>
+    <string name="success">Başarılı!</string>
+    <string name="error">Hata oluştu</string>
+    <string name="photo_selected">Fotoğraf seçildi ✓</string>
+    <string name="fill_all_fields">Lütfen tüm alanları doldurun</string>
+
+    <!-- Problem durumları -->
+    <string name="status_open">Açık</string>
+    <string name="status_in_progress">İşlemde</string>
+    <string name="status_resolved">Çözülmüş</string>
+    <string name="status_verified">Doğrulanmış</string>
+
+    <!-- Firebase Web Client ID -->
+    <string name="default_web_client_id">401936588928-gr9oqffm9mmhfn1bj6kr5dd1ec7fnusg.apps.googleusercontent.com</string>
+
+</resources>

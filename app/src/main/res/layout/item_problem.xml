@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Başlık ve Durum -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tv_problem_id"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Problem #123"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary" />
+
+            <TextView
+                android:id="@+id/tv_problem_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Açık"
+                android:textSize="12sp"
+                android:textColor="@color/white"
+                android:background="@color/status_open"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:layout_marginStart="8dp" />
+
+        </LinearLayout>
+
+        <!-- Problem Açıklaması -->
+        <TextView
+            android:id="@+id/tv_problem_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Problem açıklaması buraya gelecek..."
+            android:textSize="16sp"
+            android:textColor="@color/black"
+            android:layout_marginBottom="8dp"
+            android:maxLines="3"
+            android:ellipsize="end" />
+
+        <!-- Konum ve Tarih -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tv_problem_location"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="📍 Kalıp Üretim A-Blok"
+                android:textSize="14sp"
+                android:textColor="@color/gray_dark" />
+
+            <TextView
+                android:id="@+id/tv_problem_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="10:30"
+                android:textSize="12sp"
+                android:textColor="@color/gray_dark" />
+
+        </LinearLayout>
+
+        <!-- Problem Fotoğrafı -->
+        <ImageView
+            android:id="@+id/iv_problem_photo"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:scaleType="centerCrop"
+            android:background="@color/gray_light"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Denetmen Bilgisi -->
+        <TextView
+            android:id="@+id/tv_auditor_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Denetmen: Ahmet Yılmaz"
+            android:textSize="12sp"
+            android:textColor="@color/gray_dark"
+            android:layout_marginBottom="8dp"
+            android:drawableStart="@android:drawable/ic_menu_myplaces"
+            android:drawablePadding="4dp" />
+
+        <!-- Çözüm Sayısı ve Butonlar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_solutions_count"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="💡 0 çözüm önerisi"
+                android:textSize="14sp"
+                android:textColor="@color/primary" />
+
+            <Button
+                android:id="@+id/btn_add_solution"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Çözüm Ekle"
+                android:textSize="12sp"
+                style="@style/Widget.MaterialComponents.Button.TextButton" />
+
+            <Button
+                android:id="@+id/btn_view_details"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Detay"
+                android:textSize="12sp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

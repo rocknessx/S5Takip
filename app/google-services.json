@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "401936588928",
+    "project_id": "fir-takip-38802",
+    "storage_bucket": "fir-takip-38802.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:401936588928:android:17b0d7ae064a7bdc1ac665",
+        "android_client_info": {
+          "package_name": "com.fabrika.s5takip"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "401936588928-gr9oqffm9mmhfn1bj6kr5dd1ec7fnusg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDA-xDZlWCZPgCXxYxcL6aZ1DnBVCXA1Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "401936588928-gr9oqffm9mmhfn1bj6kr5dd1ec7fnusg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
