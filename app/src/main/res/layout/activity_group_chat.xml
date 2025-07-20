@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FAFAFA"
+    tools:context=".GroupChatActivity">
+
+    <!-- Üst Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/primary"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_chat_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Grup Sohbeti"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_current_user"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Siz: Kullanıcı"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:alpha="0.8"
+                    android:layout_marginTop="2dp" />
+
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_refresh_chat"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔄"
+                android:textSize="14sp"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:textColor="@color/white" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Chat Mesajları -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_chat_messages"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp"
+            android:clipToPadding="false" />
+
+        <!-- Boş Durum -->
+        <LinearLayout
+            android:id="@+id/tv_empty_chat"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💬"
+                android:textSize="48sp"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Henüz mesaj yok"
+                android:textSize="16sp"
+                android:textColor="@color/gray_dark"
+                android:gravity="center"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="İlk mesajı gönderin ve sohbete başlayın!"
+                android:textSize="14sp"
+                android:textColor="@color/gray_dark"
+                android:gravity="center" />
+
+        </LinearLayout>
+
+        <!-- Loading -->
+        <ProgressBar
+            android:id="@+id/progress_loading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <!-- Mesaj Gönderme Alanı -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardElevation="8dp"
+        app:cardCornerRadius="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:gravity="center_vertical">
+
+            <!-- Fotoğraf Gönder Butonu -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_send_photo"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="8dp"
+                android:text="📷"
+                android:textSize="18sp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:cornerRadius="24dp" />
+
+            <!-- Mesaj Input -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:hint="Mesajınızı yazın..."
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_message_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapSentences|textMultiLine"
+                    android:maxLines="4"
+                    android:imeOptions="actionSend" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Gönder Butonu -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_send_message"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="📤"
+                android:textSize="18sp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:cornerRadius="24dp" />
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+</LinearLayout>

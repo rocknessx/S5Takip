@@ -131,6 +131,16 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/tv_schedule_description"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Her güne bir denetmen atayın. Günlere tıklayarak denetmen seçebilirsiniz."
+                    android:textSize="14sp"
+                    android:textColor="@color/gray_dark"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/tv_weekly_schedule_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="📅 Haftalık Denetmen Programı"
@@ -138,14 +148,6 @@
                     android:textStyle="bold"
                     android:textColor="@color/primary"
                     android:layout_marginBottom="8dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Her güne bir denetmen atayın. Günlere tıklayarak denetmen seçebilirsiniz."
-                    android:textSize="14sp"
-                    android:textColor="@color/gray_dark"
-                    android:layout_marginBottom="12dp" />
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rv_weekly_schedule"

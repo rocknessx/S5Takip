@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 /**
- * Giriş ekranı - İki ayrı giriş butonu ile
+ * Giriş ekranı - Gmail çoklu hesap seçimi ve email giriş/kayıt ayrımı
  */
 class LoginActivity : AppCompatActivity() {
 
@@ -41,7 +41,12 @@ class LoginActivity : AppCompatActivity() {
             }
         } catch (e: ApiException) {
             hideLoading()
-            Toast.makeText(this, "Google giriş hatası: ${e.message}", Toast.LENGTH_LONG).show()
+            val errorMessage = when (e.statusCode) {
+                12501 -> "Giriş iptal edildi"
+                12502 -> "Geçersiz hesap seçimi"
+                else -> "Google giriş hatası: ${e.message}"
+            }
+            Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -76,52 +81,37 @@ class LoginActivity : AppCompatActivity() {
      * Click listener'ları ayarla
      */
     private fun setupClickListeners() {
-        // Gmail giriş butonu (Google Auth)
-        binding.btnGoogleSignin.text = "🌐 Gmail ile Giriş Yap"
+        // Gmail giriş butonu
         binding.btnGoogleSignin.setOnClickListener {
             startGoogleSignIn()
         }
 
-        // Email giriş butonu ekleyin (layout'ta olmalı)
-        // binding.btnEmailSignin.text = "📧 Email ile Giriş Yap"
-        // binding.btnEmailSignin.setOnClickListener {
-        //     showEmailLoginDialog()
-        // }
+        // Email giriş butonu
+        binding.btnEmailSignin.setOnClickListener {
+            showEmailLoginDialog()
+        }
 
-        // Geçici olarak bir buton daha ekleyelim
-        binding.btnGoogleSignin.setOnClickListener {
-            showLoginOptions()
+        // Kayıt ol butonu
+        binding.btnRegister.setOnClickListener {
+            val intent = Intent(this, RegisterActivity::class.java)
+            startActivity(intent)
         }
     }
 
     /**
-     * Giriş seçenekleri dialog'u göster
-     */
-    private fun showLoginOptions() {
-        val options = arrayOf("🌐 Gmail ile Giriş Yap", "📧 Email ile Giriş Yap", "🧪 Test Kullanıcısı")
-
-        AlertDialog.Builder(this)
-            .setTitle("Giriş Yöntemi Seçin")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> startGoogleSignIn()
-                    1 -> showEmailLoginDialog()
-                    2 -> createTestUserAndLogin()
-                }
-            }
-            .show()
-    }
-
-    /**
-     * Google Sign-In başlat
+     * Google Sign-In başlat - Hesap seçimi ile
      */
     private fun startGoogleSignIn() {
-        showLoading("Gmail ile giriş yapılıyor...")
+        showLoading("Gmail hesaplarınız yükleniyor...")
 
         try {
             val googleSignInClient = firebaseManager.getGoogleSignInClient(this)
-            val signInIntent = googleSignInClient.signInIntent
-            googleSignInLauncher.launch(signInIntent)
+
+            // Önceki oturumları temizle, hesap seçimi için
+            googleSignInClient.signOut().addOnCompleteListener {
+                val signInIntent = googleSignInClient.signInIntent
+                googleSignInLauncher.launch(signInIntent)
+            }
         } catch (e: Exception) {
             hideLoading()
             Toast.makeText(this, "Google giriş başlatılamadı: ${e.message}", Toast.LENGTH_LONG).show()
@@ -129,14 +119,14 @@ class LoginActivity : AppCompatActivity() {
     }
 
     /**
-     * Google hesabı ile Firebase'e giriş yap - Düzeltilmiş versiyon
+     * Google hesabı ile Firebase'e giriş yap
      */
     private fun signInWithGoogle(account: com.google.android.gms.auth.api.signin.GoogleSignInAccount) {
-        showLoading("Gmail hesabı doğrulanıyor...")
+        showLoading("${account.email} ile giriş yapılıyor...")
 
         lifecycleScope.launch {
             try {
-                println("DEBUG: Google sign-in başladı")
+                println("DEBUG: Google sign-in başladı - ${account.email}")
 
                 val result = firebaseManager.signInWithGoogle(account)
 
@@ -150,7 +140,7 @@ class LoginActivity : AppCompatActivity() {
 
                     Toast.makeText(
                         this@LoginActivity,
-                        "Gmail ile giriş başarılı! Hoş geldiniz, ${user?.displayName ?: user?.email}!",
+                        "Hoş geldiniz, ${user?.displayName ?: user?.email}! 🎉",
                         Toast.LENGTH_LONG
                     ).show()
 
@@ -185,21 +175,17 @@ class LoginActivity : AppCompatActivity() {
     }
 
     /**
-     * Email giriş dialog'u göster
+     * Email giriş dialog'u göster - Sadece giriş
      */
     private fun showEmailLoginDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_email_login, null)
+        val dialogView = layoutInflater.inflate(R.layout.dialog_email_login_only, null)
         val etEmail = dialogView.findViewById<TextInputEditText>(R.id.et_email)
         val etPassword = dialogView.findViewById<TextInputEditText>(R.id.et_password)
-
-        // Test değerleri önceden doldur
-        etEmail.setText("test@s5takip.com")
-        etPassword.setText("123456")
 
         AlertDialog.Builder(this)
             .setTitle("📧 Email ile Giriş Yap")
             .setView(dialogView)
-            .setPositiveButton("Giriş") { _, _ ->
+            .setPositiveButton("Giriş Yap") { _, _ ->
                 val email = etEmail.text.toString().trim()
                 val password = etPassword.text.toString().trim()
 
@@ -209,17 +195,7 @@ class LoginActivity : AppCompatActivity() {
                     Toast.makeText(this, "Email ve şifre gerekli", Toast.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("Kayıt Ol") { _, _ ->
-                val email = etEmail.text.toString().trim()
-                val password = etPassword.text.toString().trim()
-
-                if (email.isNotEmpty() && password.isNotEmpty()) {
-                    registerWithEmail(email, password)
-                } else {
-                    Toast.makeText(this, "Email ve şifre gerekli", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNeutralButton("İptal", null)
+            .setNegativeButton("İptal", null)
             .show()
     }
 
@@ -227,7 +203,7 @@ class LoginActivity : AppCompatActivity() {
      * Email ile giriş yap
      */
     private fun signInWithEmail(email: String, password: String) {
-        showLoading("Email ile giriş yapılıyor...")
+        showLoading("$email ile giriş yapılıyor...")
 
         lifecycleScope.launch {
             try {
@@ -237,7 +213,7 @@ class LoginActivity : AppCompatActivity() {
                 if (user != null) {
                     hideLoading()
                     Toast.makeText(this@LoginActivity,
-                        "Email giriş başarılı! Hoş geldiniz, ${user.email}!",
+                        "Hoş geldiniz, ${user.email}! 🎉",
                         Toast.LENGTH_SHORT).show()
                     navigateToGroupSelection()
                 } else {
@@ -247,72 +223,15 @@ class LoginActivity : AppCompatActivity() {
 
             } catch (e: Exception) {
                 hideLoading()
-                Toast.makeText(this@LoginActivity,
-                    "Email giriş hatası: ${e.message}",
-                    Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    /**
-     * Email ile kayıt ol
-     */
-    private fun registerWithEmail(email: String, password: String) {
-        showLoading("Email hesabı oluşturuluyor...")
-
-        lifecycleScope.launch {
-            try {
-                val result = auth.createUserWithEmailAndPassword(email, password).await()
-                val user = result.user
-
-                if (user != null) {
-                    hideLoading()
-                    Toast.makeText(this@LoginActivity,
-                        "Email hesabı oluşturuldu! Hoş geldiniz, ${user.email}!",
-                        Toast.LENGTH_SHORT).show()
-                    navigateToGroupSelection()
-                } else {
-                    hideLoading()
-                    Toast.makeText(this@LoginActivity, "Email hesabı oluşturulamadı", Toast.LENGTH_SHORT).show()
+                val errorMessage = when {
+                    e.message?.contains("invalid-email") == true -> "Geçersiz email adresi"
+                    e.message?.contains("wrong-password") == true -> "Yanlış şifre"
+                    e.message?.contains("user-not-found") == true -> "Bu email ile kayıtlı kullanıcı bulunamadı"
+                    e.message?.contains("too-many-requests") == true -> "Çok fazla deneme yapıldı, lütfen bekleyin"
+                    else -> "Giriş hatası: ${e.message}"
                 }
 
-            } catch (e: Exception) {
-                hideLoading()
-                Toast.makeText(this@LoginActivity,
-                    "Email kayıt hatası: ${e.message}",
-                    Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    /**
-     * Test kullanıcısı oluştur ve giriş yap
-     */
-    private fun createTestUserAndLogin() {
-        showLoading("Test kullanıcısı oluşturuluyor...")
-
-        lifecycleScope.launch {
-            try {
-                val email = "test@s5takip.com"
-                val password = "123456"
-
-                // Önce giriş yapmayı dene
-                try {
-                    auth.signInWithEmailAndPassword(email, password).await()
-                    hideLoading()
-                    Toast.makeText(this@LoginActivity, "Test kullanıcısı ile giriş yapıldı!", Toast.LENGTH_SHORT).show()
-                    navigateToGroupSelection()
-                } catch (e: Exception) {
-                    // Kullanıcı yoksa oluştur
-                    auth.createUserWithEmailAndPassword(email, password).await()
-                    hideLoading()
-                    Toast.makeText(this@LoginActivity, "Test kullanıcısı oluşturuldu ve giriş yapıldı!", Toast.LENGTH_SHORT).show()
-                    navigateToGroupSelection()
-                }
-
-            } catch (e: Exception) {
-                hideLoading()
-                Toast.makeText(this@LoginActivity, "Test kullanıcısı hatası: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@LoginActivity, errorMessage, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -335,6 +254,8 @@ class LoginActivity : AppCompatActivity() {
         binding.tvLoadingStatus.visibility = View.VISIBLE
         binding.tvLoadingStatus.text = message
         binding.btnGoogleSignin.isEnabled = false
+        binding.btnEmailSignin.isEnabled = false
+        binding.btnRegister.isEnabled = false
     }
 
     /**
@@ -344,5 +265,7 @@ class LoginActivity : AppCompatActivity() {
         binding.progressLoading.visibility = View.GONE
         binding.tvLoadingStatus.visibility = View.GONE
         binding.btnGoogleSignin.isEnabled = true
+        binding.btnEmailSignin.isEnabled = true
+        binding.btnRegister.isEnabled = true
     }
 }

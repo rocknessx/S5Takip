@@ -63,20 +63,41 @@
                 android:id="@+id/btn_google_signin"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:text="🌐 Google ile Giriş Yap"
+                android:text="🌐 Gmail ile Giriş Yap"
                 android:textSize="16sp"
                 android:textColor="@color/white"
                 android:background="@color/primary"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="12dp" />
 
+            <!-- Email Giriş Butonu -->
+            <Button
+                android:id="@+id/btn_email_signin"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="📧 Email ile Giriş Yap"
+                android:textSize="16sp"
+                android:layout_marginBottom="12dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            <!-- Kayıt Ol Butonu -->
+            <Button
+                android:id="@+id/btn_register"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="📝 Yeni Hesap Oluştur"
+                android:textSize="16sp"
+                style="@style/Widget.MaterialComponents.Button.TextButton" />
+
+            <!-- Açıklama -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Google hesabınızla güvenli şekilde giriş yapın"
+                android:text="Gmail ile giriş yaparken çoklu hesap seçimi yapabilirsiniz"
                 android:textSize="12sp"
                 android:textColor="@color/gray_dark"
                 android:layout_gravity="center"
-                android:gravity="center" />
+                android:gravity="center"
+                android:layout_marginTop="16dp" />
 
         </LinearLayout>
 

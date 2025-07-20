@@ -14,7 +14,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Ana sayfa - Grup bilgileri ve haftalık denetmen yönetimi ile
+ * Ana sayfa - Tam çalışır versiyon
  */
 class MainActivity : AppCompatActivity() {
 
@@ -28,29 +28,32 @@ class MainActivity : AppCompatActivity() {
     private var currentGroupId: String = ""
     private var todaysAuditor: GroupMember? = null
 
+    companion object {
+        private const val EDIT_PROFILE_REQUEST = 1001
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Veritabanı ve SharedPreferences'ı başlat
-        databaseHelper = DatabaseHelper(this)
-        sharedPreferences = getSharedPreferences("s5_takip_prefs", MODE_PRIVATE)
-        firebaseManager = FirebaseManager.getInstance()
-
-        // Intent'ten grup bilgilerini al
+        // Başlangıç ayarları
+        initializeComponents()
         loadGroupInfo()
-
-        // Test kullanıcısı oluştur
-        createTestUser()
-
-        // Bugünün denetmenini yükle
         loadTodaysAuditor()
-
-        // Ekranı ayarla
         setupUI()
         setupClickListeners()
         updateStats()
+        loadUserProfile()
+    }
+
+    /**
+     * Bileşenleri başlat
+     */
+    private fun initializeComponents() {
+        databaseHelper = DatabaseHelper(this)
+        sharedPreferences = getSharedPreferences("s5_takip_prefs", MODE_PRIVATE)
+        firebaseManager = FirebaseManager.getInstance()
     }
 
     /**
@@ -110,6 +113,10 @@ class MainActivity : AppCompatActivity() {
                                 updateTodaysAuditorDisplay()
                             }
                         }
+                    } else {
+                        runOnUiThread {
+                            updateTodaysAuditorDisplay()
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -123,7 +130,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun updateTodaysAuditorDisplay() {
         if (todaysAuditor != null) {
-            binding.tvTodaysAuditor.text = "Bugünün Denetmeni: ${todaysAuditor!!.userName}"
+            binding.tvTodaysAuditor.text = "Bugün Denetmen: ${todaysAuditor!!.userName}"
             binding.tvTodaysAuditor.visibility = View.VISIBLE
 
             // Sadece bugünün denetmeni problem ekleyebilir
@@ -149,31 +156,40 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun createTestUser() {
-        // Mevcut kullanıcıyı kontrol et
-        val userId = sharedPreferences.getString("current_user_id", null)
-        if (userId != null) {
-            currentUser = databaseHelper.getUserById(userId)
-        }
+    /**
+     * Kullanıcı profilini yükle
+     */
+    private fun loadUserProfile() {
+        val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
+        if (currentFirebaseUser != null) {
+            // Kullanıcı adı
+            binding.tvUserName.text = currentFirebaseUser.displayName ?: "Kullanıcı"
+            binding.tvUserEmail.text = currentFirebaseUser.email ?: ""
 
-        // Eğer kullanıcı yoksa oluştur
-        if (currentUser == null) {
-            val testUser = User(
-                name = "Test Denetmen",
-                email = "test@fabrika.com",
-                department = "Kalıp Üretim",
-                role = UserRole.AUDITOR
-            )
-
-            val success = databaseHelper.insertUser(testUser)
-            if (success) {
-                currentUser = testUser
-                // Kullanıcıyı kaydet
-                sharedPreferences.edit()
-                    .putString("current_user_id", testUser.id)
-                    .apply()
+            // Profil fotoğrafı - Basit yükleme
+            val photoUrl = currentFirebaseUser.photoUrl
+            if (photoUrl != null) {
+                try {
+                    binding.ivUserProfile.setImageURI(photoUrl)
+                    binding.ivUserProfile.visibility = View.VISIBLE
+                    binding.tvAvatarLetter.visibility = View.GONE
+                } catch (e: Exception) {
+                    showAvatarLetter(currentFirebaseUser)
+                }
+            } else {
+                showAvatarLetter(currentFirebaseUser)
             }
         }
+    }
+
+    /**
+     * Avatar harfini göster
+     */
+    private fun showAvatarLetter(user: com.google.firebase.auth.FirebaseUser) {
+        val firstLetter = (user.displayName?.take(1) ?: user.email?.take(1) ?: "U").uppercase()
+        binding.tvAvatarLetter.text = firstLetter
+        binding.tvAvatarLetter.visibility = View.VISIBLE
+        binding.ivUserProfile.visibility = View.GONE
     }
 
     /**
@@ -188,27 +204,12 @@ class MainActivity : AppCompatActivity() {
 
         // Hoş geldin mesajı
         val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
-        val displayName = currentFirebaseUser?.displayName ?: currentUser?.name ?: "Kullanıcı"
+        val displayName = currentFirebaseUser?.displayName ?: "Kullanıcı"
         binding.tvWelcome.text = "Hoş Geldiniz, $displayName"
 
         // Bugünün tarihi
         val dateFormat = SimpleDateFormat("dd MMMM yyyy, EEEE", Locale("tr", "TR"))
         binding.tvDate.text = dateFormat.format(Date())
-
-        // Kullanıcı bilgisi
-        val userEmail = currentFirebaseUser?.email ?: currentUser?.email ?: "email@example.com"
-        binding.tvUserInfo.text = "$displayName - $userEmail"
-
-        // Profil fotoğrafı
-        val photoUrl = currentFirebaseUser?.photoUrl
-        if (photoUrl != null) {
-            // Glide ile profil fotoğrafını yükle (gerçek uygulamada)
-            // Glide.with(this).load(photoUrl).into(binding.ivUserProfile)
-            binding.ivUserProfile.visibility = View.VISIBLE
-        } else {
-            binding.ivUserProfile.setImageResource(android.R.drawable.ic_menu_myplaces)
-            binding.ivUserProfile.visibility = View.VISIBLE
-        }
 
         // Grup ayarları butonunu göster
         binding.btnGroupSettings.visibility = if (currentGroupId.isNotEmpty()) View.VISIBLE else View.GONE
@@ -220,7 +221,6 @@ class MainActivity : AppCompatActivity() {
     private fun setupClickListeners() {
         // Problem ekleme butonu
         binding.btnAddProblem.setOnClickListener {
-            // Sadece bugünün denetmeni problem ekleyebilir
             val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
             if (todaysAuditor != null && currentFirebaseUser?.uid == todaysAuditor!!.userId) {
                 val intent = Intent(this, AddProblemActivity::class.java)
@@ -245,7 +245,15 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // Grup ayarları butonu - YENİ!
+        // Grup sohbeti butonu
+        binding.btnGroupChat.setOnClickListener {
+            val intent = Intent(this, GroupChatActivity::class.java)
+            intent.putExtra("group_id", currentGroupId)
+            intent.putExtra("group_name", selectedGroup?.name ?: "Grup")
+            startActivity(intent)
+        }
+
+        // Grup ayarları butonu
         binding.btnGroupSettings.setOnClickListener {
             val intent = Intent(this, GroupSettingsActivity::class.java)
             intent.putExtra("group_id", currentGroupId)
@@ -253,27 +261,34 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // Kullanıcı profili düzenleme butonu - YENİ!
+        // Profil düzenleme butonu
         binding.btnEditProfile.setOnClickListener {
-            showEditProfileDialog()
+            val intent = Intent(this, EditProfileActivity::class.java)
+            startActivityForResult(intent, EDIT_PROFILE_REQUEST)
         }
 
-        // Kullanıcı değiştirme butonu - Test için
-        binding.btnChangeUser.setOnClickListener {
-            // Grup seçim ekranına geri dön
-            val intent = Intent(this, GroupSelectionActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            startActivity(intent)
-            finish()
+        // Çıkış butonu
+        binding.btnLogout.setOnClickListener {
+            performLogout()
         }
     }
 
     /**
-     * Profil düzenleme dialog'u göster
+     * Çıkış işlemi
      */
-    private fun showEditProfileDialog() {
-        val intent = Intent(this, EditProfileActivity::class.java)
-        startActivity(intent)
+    private fun performLogout() {
+        lifecycleScope.launch {
+            try {
+                firebaseManager.signOut()
+
+                val intent = Intent(this@MainActivity, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, "Çıkış hatası: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     /**
@@ -290,11 +305,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * Activity sonucu işle
+     */
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == EDIT_PROFILE_REQUEST && resultCode == RESULT_OK) {
+            // Profil düzenlendikten sonra anında güncelle
+            loadUserProfile()
+            setupUI() // Hoş geldin mesajını da güncelle
+        }
+    }
+
+    /**
      * Sayfa yeniden görünür olduğunda istatistikleri güncelle
      */
     override fun onResume() {
         super.onResume()
         updateStats()
         loadTodaysAuditor() // Denetmen bilgilerini yenile
+        loadUserProfile() // Profil bilgilerini yenile
     }
 }

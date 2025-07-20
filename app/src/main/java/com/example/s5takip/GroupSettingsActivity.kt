@@ -8,11 +8,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.fabrika.s5takip.databinding.ActivityGroupSettingsBinding
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import java.util.*
 
 /**
- * Grup ayarları ekranı - Üye listesi ve haftalık denetmen ataması
+ * Grup ayarları ekranı - Üye görünümü ve grup sahibi için yönetim
  */
 class GroupSettingsActivity : AppCompatActivity() {
 
@@ -25,6 +26,7 @@ class GroupSettingsActivity : AppCompatActivity() {
     private var weeklyAuditors = mutableListOf<WeeklyAuditor>()
     private lateinit var membersAdapter: GroupMembersAdapter
     private lateinit var weeklyScheduleAdapter: WeeklyScheduleAdapter
+    private var isGroupOwner = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,22 +62,29 @@ class GroupSettingsActivity : AppCompatActivity() {
      */
     private fun setupUI() {
         binding.tvGroupNameTitle.text = groupName
+
+        // Başlangıçta düzenleme butonlarını gizle
+        binding.btnShareInviteCode.visibility = View.GONE
     }
 
     /**
      * RecyclerView'ları ayarla
      */
     private fun setupRecyclerViews() {
-        // Grup üyeleri adapter
+        // Grup üyeleri adapter - sadece görüntüleme
         membersAdapter = GroupMembersAdapter(groupMembers) { member ->
-            showMemberOptionsDialog(member)
+            showMemberProfile(member)
         }
         binding.rvGroupMembers.layoutManager = LinearLayoutManager(this)
         binding.rvGroupMembers.adapter = membersAdapter
 
-        // Haftalık program adapter
+        // Haftalık program adapter - düzenleme yetkisi kontrolü ile
         weeklyScheduleAdapter = WeeklyScheduleAdapter(weeklyAuditors, groupMembers) { weekDay ->
-            showAuditorSelectionDialog(weekDay)
+            if (isGroupOwner) {
+                showAuditorSelectionDialog(weekDay)
+            } else {
+                showReadOnlyScheduleInfo(weekDay)
+            }
         }
         binding.rvWeeklySchedule.layoutManager = LinearLayoutManager(this)
         binding.rvWeeklySchedule.adapter = weeklyScheduleAdapter
@@ -90,9 +99,11 @@ class GroupSettingsActivity : AppCompatActivity() {
             loadGroupData()
         }
 
-        // Davet kodu paylaş
+        // Davet kodu paylaş (sadece grup sahibi için)
         binding.btnShareInviteCode.setOnClickListener {
-            shareInviteCode()
+            if (isGroupOwner) {
+                shareInviteCode()
+            }
         }
     }
 
@@ -104,6 +115,9 @@ class GroupSettingsActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
+                // Önce grup bilgilerini al ve yetki kontrolü yap
+                checkGroupOwnership()
+
                 // Grup üyelerini yükle
                 val membersResult = firebaseManager.getGroupMembers(groupId)
                 if (membersResult.isSuccess) {
@@ -126,6 +140,7 @@ class GroupSettingsActivity : AppCompatActivity() {
 
                     runOnUiThread {
                         weeklyScheduleAdapter.notifyDataSetChanged()
+                        updateWeeklyScheduleTitle()
                     }
                 }
 
@@ -144,20 +159,55 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Üye seçenekleri dialog'u
+     * Grup sahipliği kontrolü yap
      */
-    private fun showMemberOptionsDialog(member: GroupMember) {
-        val options = arrayOf("Profili Görüntüle", "Haftalık Programa Ekle")
+    private fun checkGroupOwnership() {
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
-        AlertDialog.Builder(this)
-            .setTitle(member.userName)
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> showMemberProfile(member)
-                    1 -> showWeeklyScheduleForMember(member)
+        // Basit kontrol - gerçek uygulamada Firestore'dan grup bilgilerini alın
+        lifecycleScope.launch {
+            try {
+                // Grup üyelerini kontrol et
+                val membersResult = firebaseManager.getGroupMembers(groupId)
+                if (membersResult.isSuccess) {
+                    val members = membersResult.getOrNull() ?: emptyList()
+                    val currentUserMember = members.find { it.userId == currentUserId }
+
+                    isGroupOwner = currentUserMember?.role == GroupRoles.OWNER
+
+                    runOnUiThread {
+                        updateUIBasedOnPermissions()
+                    }
                 }
+            } catch (e: Exception) {
+                println("DEBUG: Grup sahipliği kontrolü hatası: ${e.message}")
             }
-            .show()
+        }
+    }
+
+    /**
+     * Yetkilere göre UI'ı güncelle
+     */
+    private fun updateUIBasedOnPermissions() {
+        if (isGroupOwner) {
+            binding.btnShareInviteCode.visibility = View.VISIBLE
+            binding.tvScheduleDescription.text = "Her güne bir denetmen atayın. Günlere tıklayarak denetmen seçebilirsiniz."
+        } else {
+            binding.btnShareInviteCode.visibility = View.GONE
+            binding.tvScheduleDescription.text = "Haftalık denetmen programını görüntülüyorsunuz. Değişiklik yapmak için grup sahibi ile iletişime geçin."
+        }
+    }
+
+    /**
+     * Haftalık program başlığını güncelle
+     */
+    private fun updateWeeklyScheduleTitle() {
+        val titleText = if (isGroupOwner) {
+            "📅 Haftalık Denetmen Programı (Düzenle)"
+        } else {
+            "📅 Haftalık Denetmen Programı (Görüntüle)"
+        }
+        binding.tvWeeklyScheduleTitle.text = titleText
     }
 
     /**
@@ -179,28 +229,35 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Üye için haftalık program göster
+     * Sadece okuma modunda program bilgisi göster
      */
-    private fun showWeeklyScheduleForMember(member: GroupMember) {
-        val memberDays = weeklyAuditors.filter { it.auditorId == member.userId }
-        val message = if (memberDays.isNotEmpty()) {
-            "Bu üye şu günlerde denetmen:\n" +
-                    memberDays.joinToString("\n") { "${getDayName(it.weekDay)}" }
+    private fun showReadOnlyScheduleInfo(weekDay: Int) {
+        val dayName = getDayName(weekDay)
+        val auditor = weeklyAuditors.find { it.weekDay == weekDay }
+
+        val message = if (auditor != null) {
+            val member = groupMembers.find { it.userId == auditor.auditorId }
+            "$dayName günü denetmeni: ${member?.userName ?: "Bilinmeyen"}"
         } else {
-            "Bu üye henüz hiçbir güne atanmamış"
+            "$dayName günü için henüz denetmen atanmamış."
         }
 
         AlertDialog.Builder(this)
-            .setTitle("${member.userName} - Haftalık Program")
+            .setTitle("Denetmen Bilgisi")
             .setMessage(message)
             .setPositiveButton("Tamam", null)
             .show()
     }
 
     /**
-     * Denetmen seçim dialog'u
+     * Denetmen seçim dialog'u (sadece grup sahibi için)
      */
     private fun showAuditorSelectionDialog(weekDay: Int) {
+        if (!isGroupOwner) {
+            showReadOnlyScheduleInfo(weekDay)
+            return
+        }
+
         val dayName = getDayName(weekDay)
         val memberNames = groupMembers.map { it.userName }.toTypedArray()
 
@@ -330,7 +387,7 @@ class GroupSettingsActivity : AppCompatActivity() {
 }
 
 /**
- * Grup üyeleri için adapter
+ * Grup üyeleri için adapter - Sadece görüntüleme
  */
 class GroupMembersAdapter(
     private val members: List<GroupMember>,
@@ -367,7 +424,10 @@ class GroupMembersAdapter(
         innerLayout.setPadding(16, 12, 16, 12)
         innerLayout.gravity = android.view.Gravity.CENTER_VERTICAL
 
-        // Profil ikonu
+        // Profil avatarı
+        val avatarFrame = android.widget.FrameLayout(context)
+        avatarFrame.layoutParams = android.widget.LinearLayout.LayoutParams(48, 48)
+
         val profileIcon = android.widget.TextView(context)
         profileIcon.text = member.userName.take(1).uppercase()
         profileIcon.textSize = 18f
@@ -375,8 +435,9 @@ class GroupMembersAdapter(
         profileIcon.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.white))
         profileIcon.background = androidx.core.content.ContextCompat.getDrawable(context, R.color.primary)
         profileIcon.gravity = android.view.Gravity.CENTER
-        profileIcon.width = 48
-        profileIcon.height = 48
+        profileIcon.layoutParams = android.widget.FrameLayout.LayoutParams(48, 48)
+
+        avatarFrame.addView(profileIcon)
 
         // Kullanıcı bilgileri
         val userInfo = android.widget.LinearLayout(context)
@@ -395,17 +456,21 @@ class GroupMembersAdapter(
         emailText.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.gray_dark))
 
         val roleText = android.widget.TextView(context)
-        roleText.text = member.role
+        val roleDisplayText = when (member.role) {
+            GroupRoles.OWNER -> "👑 Grup Sahibi"
+            GroupRoles.ADMIN -> "⭐ Yönetici"
+            GroupRoles.AUDITOR -> "🔍 Denetmen"
+            else -> "👤 Üye"
+        }
+        roleText.text = roleDisplayText
         roleText.textSize = 12f
         roleText.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.primary))
-        roleText.setPadding(8, 4, 8, 4)
-        roleText.background = androidx.core.content.ContextCompat.getDrawable(context, R.color.gray_light)
 
         userInfo.addView(nameText)
         userInfo.addView(emailText)
         userInfo.addView(roleText)
 
-        innerLayout.addView(profileIcon)
+        innerLayout.addView(avatarFrame)
         innerLayout.addView(userInfo)
 
         // CardView'ı temizle ve yeni içeriği ekle
@@ -421,7 +486,7 @@ class GroupMembersAdapter(
 }
 
 /**
- * Haftalık program için adapter
+ * Haftalık program için adapter - Güncellendi
  */
 class WeeklyScheduleAdapter(
     private val weeklyAuditors: List<WeeklyAuditor>,
@@ -471,36 +536,58 @@ class WeeklyScheduleAdapter(
             "Atanmamış"
         }
 
+        // Bugün mü kontrol et
+        val calendar = Calendar.getInstance()
+        val todayNumber = when (calendar.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.MONDAY -> 1
+            Calendar.TUESDAY -> 2
+            Calendar.WEDNESDAY -> 3
+            Calendar.THURSDAY -> 4
+            Calendar.FRIDAY -> 5
+            Calendar.SATURDAY -> 6
+            Calendar.SUNDAY -> 7
+            else -> 0
+        }
+
         // İç layout oluştur
         val innerLayout = android.widget.LinearLayout(context)
         innerLayout.orientation = android.widget.LinearLayout.HORIZONTAL
         innerLayout.setPadding(16, 12, 16, 12)
         innerLayout.gravity = android.view.Gravity.CENTER_VERTICAL
 
+        // Bugün ise farklı renk
+        if (dayNumber == todayNumber) {
+            innerLayout.setBackgroundColor(androidx.core.content.ContextCompat.getColor(context, R.color.primary))
+        }
+
         // Gün adı
         val dayText = android.widget.TextView(context)
-        dayText.text = dayName
+        dayText.text = if (dayNumber == todayNumber) "🔴 $dayName (BUGÜN)" else dayName
         dayText.textSize = 16f
         dayText.setTypeface(null, android.graphics.Typeface.BOLD)
-        dayText.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.primary))
+        val dayColor = if (dayNumber == todayNumber) R.color.white else R.color.primary
+        dayText.setTextColor(androidx.core.content.ContextCompat.getColor(context, dayColor))
         dayText.layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
 
         // Denetmen adı
         val auditorText = android.widget.TextView(context)
         auditorText.text = auditorName
         auditorText.textSize = 14f
-        auditorText.setTextColor(
-            if (assignedAuditor != null)
-                androidx.core.content.ContextCompat.getColor(context, R.color.black)
-            else
-                androidx.core.content.ContextCompat.getColor(context, R.color.gray_dark)
-        )
+        val auditorColor = if (dayNumber == todayNumber) {
+            R.color.white
+        } else if (assignedAuditor != null) {
+            R.color.black
+        } else {
+            R.color.gray_dark
+        }
+        auditorText.setTextColor(androidx.core.content.ContextCompat.getColor(context, auditorColor))
 
         // Ok işareti
         val arrowText = android.widget.TextView(context)
         arrowText.text = "›"
         arrowText.textSize = 20f
-        arrowText.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.gray_medium))
+        val arrowColor = if (dayNumber == todayNumber) R.color.white else R.color.gray_medium
+        arrowText.setTextColor(androidx.core.content.ContextCompat.getColor(context, arrowColor))
 
         innerLayout.addView(dayText)
         innerLayout.addView(auditorText)

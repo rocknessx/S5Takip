@@ -150,10 +150,11 @@ class EditProfileActivity : AppCompatActivity() {
                 val profileUpdates = UserProfileChangeRequest.Builder()
                     .setDisplayName(fullName)
 
-                // Eğer yeni fotoğraf seçildiyse ekle
+                // Eğer yeni fotoğraf seçildiyse Firebase Storage'a yükle
+                var photoUrl: String? = null
                 if (selectedImageUri != null) {
-                    // Gerçek uygulamada fotoğrafı Firebase Storage'a yükleyip URL alınır
-                    // Şimdilik local URI'yi kullanıyoruz
+                    // Basitleştirilmiş versiyon - gerçek uygulamada Firebase Storage kullanılır
+                    photoUrl = selectedImageUri.toString()
                     profileUpdates.setPhotoUri(selectedImageUri)
                 }
 

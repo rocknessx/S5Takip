@@ -78,6 +78,30 @@
                 android:value=".MainActivity" />
         </activity>
 
+        <!-- Kayıt Olma Activity - YENİ! -->
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false"
+            android:parentActivityName=".LoginActivity"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".LoginActivity" />
+        </activity>
+
+        <!-- Grup Sohbeti Activity - YENİ! -->
+        <activity
+            android:name=".GroupChatActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".MainActivity" />
+        </activity>
+
         <!-- Problem Ekleme Activity -->
         <activity
             android:name=".AddProblemActivity"
