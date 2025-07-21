@@ -150,13 +150,31 @@ class RegisterActivity : AppCompatActivity() {
     }
 
     /**
-     * Grup seçim ekranına git
+     * Grup seçim ekranına git - DÜZELTİLMİŞ VERSİYON
      */
     private fun navigateToGroupSelection() {
-        val intent = Intent(this, GroupSelectionActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
+        try {
+            println("DEBUG: 📱 RegisterActivity'den GroupSelectionActivity'ye yönlendiriliyor...")
+
+            val intent = Intent(this, GroupSelectionActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+
+            println("DEBUG: 🔄 Intent oluşturuldu, startActivity çağrılıyor...")
+            startActivity(intent)
+
+            println("DEBUG: ✨ Activity başlatıldı, finish() çağrılıyor...")
+            finish()
+
+            println("DEBUG: 🎯 RegisterActivity sonlandırıldı")
+
+        } catch (e: Exception) {
+            println("DEBUG: ❌ Navigation hatası: ${e.message}")
+            e.printStackTrace()
+
+            Toast.makeText(this,
+                "Navigation hatası: ${e.message}",
+                Toast.LENGTH_LONG).show()
+        }
     }
 
     /**

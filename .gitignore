@@ -1,3 +1,5 @@
+# Android Studio/.gitignore dosyanızı bu şekilde güncelleyin:
+
 *.iml
 .gradle
 /local.properties
@@ -13,3 +15,44 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# 🔒 GÜVENLİK - Firebase ve Google Services
+app/google-services.json
+google-services.json
+/app/src/main/res/values/google_services.xml
+
+# 🔒 GÜVENLİK - API Keys
+app/src/main/res/values/api_keys.xml
+**/api_keys.xml
+**/secrets.xml
+
+# 🔒 GÜVENLİK - Keystore Files
+*.keystore
+*.jks
+key.properties
+
+# 🔒 GÜVENLİK - Config Files
+config/
+secrets/
+.env
+*.env
+
+# 🔒 GÜVENLİK - Backup Files
+*.backup
+*.bak
+
+# Build Outputs
+/app/build/
+build/
+*/build/
+
+# Signing Files
+signing.properties
+keystore.properties
+
+# Logs
+*.log
+
+# Temporary Files
+*.tmp
+*.temp

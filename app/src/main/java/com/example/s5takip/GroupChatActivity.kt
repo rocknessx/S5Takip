@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -17,7 +18,7 @@ import kotlinx.coroutines.launch
 import java.util.*
 
 /**
- * Grup sohbet ekranı - Tam çalışır versiyon
+ * Grup sohbet ekranı - Tamamen Düzeltilmiş Versiyon
  */
 class GroupChatActivity : AppCompatActivity() {
 
@@ -49,9 +50,13 @@ class GroupChatActivity : AppCompatActivity() {
         binding = ActivityGroupChatBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        println("DEBUG: GroupChatActivity onCreate başladı")
+
         // Intent'ten grup bilgilerini al
         groupId = intent.getStringExtra("group_id") ?: ""
         groupName = intent.getStringExtra("group_name") ?: "Grup"
+
+        println("DEBUG: Grup bilgileri - ID: $groupId, Ad: $groupName")
 
         if (groupId.isEmpty()) {
             Toast.makeText(this, "Grup bilgisi bulunamadı", Toast.LENGTH_SHORT).show()
@@ -119,21 +124,39 @@ class GroupChatActivity : AppCompatActivity() {
     }
 
     /**
-     * Chat mesajlarını yükle
+     * Chat mesajlarını yükle - Basitleştirilmiş ve çalışır versiyon
      */
     private fun loadChatMessages() {
         binding.progressLoading.visibility = View.VISIBLE
         println("DEBUG: Chat mesajları yükleniyor - Grup ID: $groupId")
 
+        // Grup ID kontrolü
+        if (groupId.isEmpty()) {
+            println("DEBUG: ❌ Grup ID boş!")
+            runOnUiThread {
+                binding.progressLoading.visibility = View.GONE
+                binding.tvEmptyChat.visibility = View.VISIBLE
+                Toast.makeText(this@GroupChatActivity, "Grup bilgisi bulunamadı", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
         lifecycleScope.launch {
             try {
-                val result = firebaseManager.getChatMessages(groupId, 50)
+                println("DEBUG: Firestore'dan chat mesajları getiriliyor...")
 
-                println("DEBUG: FirebaseManager sonucu - Başarılı: ${result.isSuccess}")
+                // Chat mesajlarını direkt getir (test kısmını atla)
+                val result = firebaseManager.getChatMessages(groupId, 50)
+                println("DEBUG: getChatMessages sonucu - Başarılı: ${result.isSuccess}")
 
                 if (result.isSuccess) {
                     val messages = result.getOrNull() ?: emptyList()
                     println("DEBUG: ${messages.size} mesaj alındı")
+
+                    // Debug: İlk birkaç mesajı logla
+                    messages.take(3).forEach { message ->
+                        println("DEBUG: Mesaj - ${message.senderName}: ${message.message.take(20)}...")
+                    }
 
                     chatMessages.clear()
                     chatMessages.addAll(messages)
@@ -144,6 +167,7 @@ class GroupChatActivity : AppCompatActivity() {
                         // En son mesaja kaydır
                         if (chatMessages.isNotEmpty()) {
                             binding.rvChatMessages.scrollToPosition(chatMessages.size - 1)
+                            println("DEBUG: Liste ${chatMessages.size}. mesaja kaydırıldı")
                         }
 
                         // Boş durum kontrolü
@@ -156,46 +180,81 @@ class GroupChatActivity : AppCompatActivity() {
                         }
 
                         binding.progressLoading.visibility = View.GONE
+
+                        // Başarı mesajı (sadece mesaj varsa)
+                        if (messages.isNotEmpty()) {
+                            Toast.makeText(this@GroupChatActivity,
+                                "✅ ${messages.size} mesaj yüklendi", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 } else {
                     val error = result.exceptionOrNull()
-                    println("DEBUG: Chat mesajları yükleme hatası: ${error?.message}")
+                    println("DEBUG: ❌ Chat mesajları yükleme hatası: ${error?.message}")
 
                     runOnUiThread {
                         binding.progressLoading.visibility = View.GONE
 
-                        // Hata mesajını daha detaylı göster
+                        // Hata mesajını kullanıcı dostu hale getir
                         val errorMessage = when {
-                            error?.message?.contains("permission") == true ->
-                                "Firestore izin hatası. Firebase Rules kontrol edin."
-                            error?.message?.contains("network") == true ->
-                                "İnternet bağlantısı sorunu"
-                            else -> "Mesajlar yüklenemedi: ${error?.message}"
+                            error?.message?.contains("permission", ignoreCase = true) == true ->
+                                "Firestore İzin Hatası"
+                            error?.message?.contains("network", ignoreCase = true) == true ->
+                                "İnternet Bağlantısı Sorunu"
+                            error?.message?.contains("unauthenticated", ignoreCase = true) == true ->
+                                "Kimlik Doğrulama Hatası"
+                            error?.message?.contains("not-found", ignoreCase = true) == true ->
+                                "Firestore Veritabanı Bulunamadı"
+                            else -> "Chat Yükleme Hatası"
                         }
 
-                        Toast.makeText(this@GroupChatActivity, errorMessage, Toast.LENGTH_LONG).show()
+                        val detailedMessage = when {
+                            error?.message?.contains("permission", ignoreCase = true) == true ->
+                                "Firebase Console'da Firestore Security Rules'ı kontrol edin."
+                            error?.message?.contains("network", ignoreCase = true) == true ->
+                                "İnternet bağlantınızı kontrol edin ve tekrar deneyin."
+                            error?.message?.contains("not-found", ignoreCase = true) == true ->
+                                "Firestore veritabanı oluşturulmamış. Firebase Console'da Firestore'u etkinleştirin."
+                            else -> error?.message ?: "Bilinmeyen hata"
+                        }
 
-                        // Boş durum göster
-                        binding.tvEmptyChat.visibility = View.VISIBLE
+                        // Hata dialog'u göster
+                        AlertDialog.Builder(this@GroupChatActivity)
+                            .setTitle(errorMessage)
+                            .setMessage(detailedMessage)
+                            .setPositiveButton("Tekrar Dene") { _, _ ->
+                                loadChatMessages() // Tekrar dene
+                            }
+                            .setNegativeButton("Tamam") { _, _ ->
+                                binding.tvEmptyChat.visibility = View.VISIBLE
+                            }
+                            .show()
                     }
                 }
 
             } catch (e: Exception) {
-                println("DEBUG: Chat yükleme exception: ${e.message}")
+                println("DEBUG: ❌ Chat yükleme exception: ${e.message}")
                 e.printStackTrace()
 
                 runOnUiThread {
                     binding.progressLoading.visibility = View.GONE
-                    Toast.makeText(this@GroupChatActivity,
-                        "Beklenmeyen hata: ${e.message}", Toast.LENGTH_LONG).show()
-                    binding.tvEmptyChat.visibility = View.VISIBLE
+
+                    AlertDialog.Builder(this@GroupChatActivity)
+                        .setTitle("Beklenmeyen Hata")
+                        .setMessage("Chat yüklenirken beklenmeyen bir hata oluştu:\n\n${e.message}")
+                        .setPositiveButton("Tekrar Dene") { _, _ ->
+                            loadChatMessages()
+                        }
+                        .setNegativeButton("Kapat") { _, _ ->
+                            finish()
+                        }
+                        .show()
                 }
             }
         }
     }
 
     /**
-     * Metin mesajı gönder
+     * Metin mesajı gönder - Güvenli versiyon
      */
     private fun sendTextMessage() {
         val messageText = binding.etMessageInput.text.toString().trim()
@@ -210,6 +269,8 @@ class GroupChatActivity : AppCompatActivity() {
             Toast.makeText(this, "Giriş yapılmamış", Toast.LENGTH_SHORT).show()
             return
         }
+
+        println("DEBUG: Mesaj gönderiliyor: ${messageText.take(20)}...")
 
         // Mesaj gönder butonunu deaktif et
         binding.btnSendMessage.isEnabled = false
@@ -231,6 +292,8 @@ class GroupChatActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     if (result.isSuccess) {
+                        println("DEBUG: ✅ Mesaj başarıyla gönderildi")
+
                         // Mesajı listeye ekle
                         chatMessages.add(chatMessage)
                         chatAdapter.notifyItemInserted(chatMessages.size - 1)
@@ -244,7 +307,11 @@ class GroupChatActivity : AppCompatActivity() {
                         // Boş durum mesajını gizle
                         binding.tvEmptyChat.visibility = View.GONE
 
+                        // Başarı feedback'i
+                        Toast.makeText(this@GroupChatActivity, "Mesaj gönderildi ✓", Toast.LENGTH_SHORT).show()
+
                     } else {
+                        println("DEBUG: ❌ Mesaj gönderme hatası: ${result.exceptionOrNull()?.message}")
                         Toast.makeText(this@GroupChatActivity,
                             "Mesaj gönderilemedi: ${result.exceptionOrNull()?.message}",
                             Toast.LENGTH_SHORT).show()
@@ -254,6 +321,7 @@ class GroupChatActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
+                println("DEBUG: ❌ Mesaj gönderme exception: ${e.message}")
                 runOnUiThread {
                     Toast.makeText(this@GroupChatActivity,
                         "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -288,6 +356,8 @@ class GroupChatActivity : AppCompatActivity() {
             return
         }
 
+        println("DEBUG: Fotoğraf mesajı gönderiliyor...")
+
         // Fotoğraf gönder butonunu deaktif et
         binding.btnSendPhoto.isEnabled = false
 
@@ -308,6 +378,8 @@ class GroupChatActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     if (result.isSuccess) {
+                        println("DEBUG: ✅ Fotoğraf mesajı başarıyla gönderildi")
+
                         // Mesajı listeye ekle
                         chatMessages.add(chatMessage)
                         chatAdapter.notifyItemInserted(chatMessages.size - 1)
@@ -318,9 +390,10 @@ class GroupChatActivity : AppCompatActivity() {
                         // Boş durum mesajını gizle
                         binding.tvEmptyChat.visibility = View.GONE
 
-                        Toast.makeText(this@GroupChatActivity, "Fotoğraf gönderildi!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@GroupChatActivity, "Fotoğraf gönderildi! 📷", Toast.LENGTH_SHORT).show()
 
                     } else {
+                        println("DEBUG: ❌ Fotoğraf gönderme hatası: ${result.exceptionOrNull()?.message}")
                         Toast.makeText(this@GroupChatActivity,
                             "Fotoğraf gönderilemedi: ${result.exceptionOrNull()?.message}",
                             Toast.LENGTH_SHORT).show()
@@ -331,6 +404,7 @@ class GroupChatActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
+                println("DEBUG: ❌ Fotoğraf gönderme exception: ${e.message}")
                 runOnUiThread {
                     Toast.makeText(this@GroupChatActivity,
                         "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -351,7 +425,7 @@ class GroupChatActivity : AppCompatActivity() {
 }
 
 /**
- * Chat mesajları için adapter - Tam çalışır versiyon
+ * Chat mesajları için adapter - Tamamen Çalışır Versiyon
  */
 class ChatAdapter(
     private val messages: List<ChatMessage>

@@ -129,19 +129,41 @@ class MainActivity : AppCompatActivity() {
      * Bugünün denetmeni gösterimini güncelle
      */
     private fun updateTodaysAuditorDisplay() {
+        val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
+
+        // Grup sahibi kontrolü ekle
+        var isGroupOwner = false
+        if (currentGroupId.isNotEmpty()) {
+            lifecycleScope.launch {
+                try {
+                    val membersResult = firebaseManager.getGroupMembers(currentGroupId)
+                    if (membersResult.isSuccess) {
+                        val members = membersResult.getOrNull() ?: emptyList()
+                        val currentUserMember = members.find { it.userId == currentFirebaseUser?.uid }
+                        isGroupOwner = currentUserMember?.role == GroupRoles.OWNER
+
+                        runOnUiThread {
+                            updateProblemAddPermission(isGroupOwner)
+                        }
+                    }
+                } catch (e: Exception) {
+                    println("DEBUG: Grup sahipliği kontrolü hatası: ${e.message}")
+                }
+            }
+        }
+
         if (todaysAuditor != null) {
             binding.tvTodaysAuditor.text = "Bugün Denetmen: ${todaysAuditor!!.userName}"
             binding.tvTodaysAuditor.visibility = View.VISIBLE
 
-            // Sadece bugünün denetmeni problem ekleyebilir
-            val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
-            val canAddProblem = currentFirebaseUser?.uid == todaysAuditor!!.userId
+            // Bugünün denetmeni veya grup sahibi problem ekleyebilir
+            val canAddProblem = currentFirebaseUser?.uid == todaysAuditor!!.userId || isGroupOwner
 
             binding.btnAddProblem.isEnabled = canAddProblem
             binding.btnAddProblem.alpha = if (canAddProblem) 1.0f else 0.5f
 
-            if (!canAddProblem) {
-                binding.tvAuditorInfo.text = "Sadece bugünün denetmeni problem ekleyebilir"
+            if (!canAddProblem && !isGroupOwner) {
+                binding.tvAuditorInfo.text = "Sadece bugünün denetmeni veya grup sahibi problem ekleyebilir"
                 binding.tvAuditorInfo.visibility = View.VISIBLE
             } else {
                 binding.tvAuditorInfo.visibility = View.GONE
@@ -149,9 +171,16 @@ class MainActivity : AppCompatActivity() {
         } else {
             binding.tvTodaysAuditor.text = "Bugün için atanmış denetmen yok"
             binding.tvTodaysAuditor.visibility = View.VISIBLE
-            binding.btnAddProblem.isEnabled = false
-            binding.btnAddProblem.alpha = 0.5f
-            binding.tvAuditorInfo.text = "Lütfen grup ayarlarından haftalık denetmen ataması yapın"
+
+            // Grup sahibi denetmen atanmamış olsa bile problem ekleyebilir
+            binding.btnAddProblem.isEnabled = isGroupOwner
+            binding.btnAddProblem.alpha = if (isGroupOwner) 1.0f else 0.5f
+
+            if (isGroupOwner) {
+                binding.tvAuditorInfo.text = "Grup sahibi olarak problem ekleyebilirsiniz"
+            } else {
+                binding.tvAuditorInfo.text = "Lütfen grup ayarlarından haftalık denetmen ataması yapın"
+            }
             binding.tvAuditorInfo.visibility = View.VISIBLE
         }
     }
@@ -213,6 +242,30 @@ class MainActivity : AppCompatActivity() {
 
         // Grup ayarları butonunu göster
         binding.btnGroupSettings.visibility = if (currentGroupId.isNotEmpty()) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Problem ekleme yetkisini güncelle
+     */
+    private fun updateProblemAddPermission(isGroupOwner: Boolean) {
+        val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
+        val isTodaysAuditor = currentFirebaseUser?.uid == todaysAuditor?.userId
+
+        val canAddProblem = isTodaysAuditor || isGroupOwner
+
+        binding.btnAddProblem.isEnabled = canAddProblem
+        binding.btnAddProblem.alpha = if (canAddProblem) 1.0f else 0.5f
+
+        // setupClickListeners metodundaki problem ekleme butonunu da güncelle
+        binding.btnAddProblem.setOnClickListener {
+            if (canAddProblem) {
+                val intent = Intent(this, AddProblemActivity::class.java)
+                intent.putExtra("group_id", currentGroupId)
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "Sadece bugünün denetmeni veya grup sahibi problem ekleyebilir", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     /**

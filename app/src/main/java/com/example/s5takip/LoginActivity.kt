@@ -17,7 +17,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 /**
- * Giriş ekranı - Gmail çoklu hesap seçimi ve email giriş/kayıt ayrımı
+ * Giriş ekranı - Tamamen Düzeltilmiş Versiyon
+ * Gmail ile giriş ve email/şifre giriş seçenekleri
  */
 class LoginActivity : AppCompatActivity() {
 
@@ -34,6 +35,7 @@ class LoginActivity : AppCompatActivity() {
             val account = task.getResult(ApiException::class.java)
 
             if (account != null) {
+                println("DEBUG: Google hesabı seçildi: ${account.email}")
                 signInWithGoogle(account)
             } else {
                 hideLoading()
@@ -41,11 +43,15 @@ class LoginActivity : AppCompatActivity() {
             }
         } catch (e: ApiException) {
             hideLoading()
+            println("DEBUG: Google Sign-In API Exception: ${e.statusCode} - ${e.message}")
+
             val errorMessage = when (e.statusCode) {
                 12501 -> "Giriş iptal edildi"
                 12502 -> "Geçersiz hesap seçimi"
-                else -> "Google giriş hatası: ${e.message}"
+                12500 -> "Google Play Services güncelleştirmesi gerekli"
+                else -> "Google giriş hatası (Kod: ${e.statusCode})"
             }
+
             Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
         }
     }
@@ -54,6 +60,8 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        println("DEBUG: LoginActivity onCreate başladı")
 
         // Firebase Auth'u başlat
         auth = FirebaseAuth.getInstance()
@@ -64,6 +72,8 @@ class LoginActivity : AppCompatActivity() {
 
         // Click listener'ları ayarla
         setupClickListeners()
+
+        println("DEBUG: LoginActivity hazır")
     }
 
     /**
@@ -72,8 +82,11 @@ class LoginActivity : AppCompatActivity() {
     private fun checkCurrentUser() {
         val currentUser = auth.currentUser
         if (currentUser != null) {
-            // Kullanıcı zaten giriş yapmış, grup seçimine git
+            println("DEBUG: Kullanıcı zaten giriş yapmış: ${currentUser.email}")
+            // Firestore bağlantısını test etmeden direkt yönlendir
             navigateToGroupSelection()
+        } else {
+            println("DEBUG: Kullanıcı giriş yapmamış")
         }
     }
 
@@ -83,16 +96,19 @@ class LoginActivity : AppCompatActivity() {
     private fun setupClickListeners() {
         // Gmail giriş butonu
         binding.btnGoogleSignin.setOnClickListener {
+            println("DEBUG: Gmail giriş butonuna tıklandı")
             startGoogleSignIn()
         }
 
         // Email giriş butonu
         binding.btnEmailSignin.setOnClickListener {
+            println("DEBUG: Email giriş butonuna tıklandı")
             showEmailLoginDialog()
         }
 
         // Kayıt ol butonu
         binding.btnRegister.setOnClickListener {
+            println("DEBUG: Kayıt ol butonuna tıklandı")
             val intent = Intent(this, RegisterActivity::class.java)
             startActivity(intent)
         }
@@ -105,15 +121,20 @@ class LoginActivity : AppCompatActivity() {
         showLoading("Gmail hesaplarınız yükleniyor...")
 
         try {
+            println("DEBUG: Google Sign-In Client oluşturuluyor...")
             val googleSignInClient = firebaseManager.getGoogleSignInClient(this)
 
-            // Önceki oturumları temizle, hesap seçimi için
-            googleSignInClient.signOut().addOnCompleteListener {
+            // Önceki oturumları temizle ki hesap seçimi çıksın
+            googleSignInClient.signOut().addOnCompleteListener { signOutTask ->
+                println("DEBUG: Önceki Google oturumları temizlendi: ${signOutTask.isSuccessful}")
+
                 val signInIntent = googleSignInClient.signInIntent
+                println("DEBUG: Google Sign-In intent başlatılıyor...")
                 googleSignInLauncher.launch(signInIntent)
             }
         } catch (e: Exception) {
             hideLoading()
+            println("DEBUG: Google Sign-In başlatma hatası: ${e.message}")
             Toast.makeText(this, "Google giriş başlatılamadı: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
@@ -126,56 +147,88 @@ class LoginActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                println("DEBUG: Google sign-in başladı - ${account.email}")
+                println("DEBUG: Firebase ile Google giriş başlıyor - ${account.email}")
 
                 val result = firebaseManager.signInWithGoogle(account)
 
-                println("DEBUG: FirebaseManager sonucu: ${result.isSuccess}")
-
                 if (result.isSuccess) {
                     val user = result.getOrNull()
-                    println("DEBUG: AppUser oluşturuldu: ${user?.displayName}, ${user?.email}")
+                    println("DEBUG: Google giriş başarılı: ${user?.displayName}, ${user?.email}")
 
                     hideLoading()
 
+                    // Başarı mesajı göster
                     Toast.makeText(
                         this@LoginActivity,
                         "Hoş geldiniz, ${user?.displayName ?: user?.email}! 🎉",
                         Toast.LENGTH_LONG
                     ).show()
 
-                    // Kısa bekleme sonrası navigation
+                    // Kısa bekleme sonrası navigation (UI responsive olsun)
                     binding.root.postDelayed({
+                        println("DEBUG: GroupSelectionActivity'ye yönlendiriliyor...")
                         navigateToGroupSelection()
-                    }, 1000)
+                    }, 1500) // 1.5 saniye bekle
 
                 } else {
                     hideLoading()
                     val error = result.exceptionOrNull()
-                    println("DEBUG: Gmail giriş hatası: ${error?.message}")
+                    println("DEBUG: Google giriş başarısız: ${error?.message}")
 
-                    Toast.makeText(
-                        this@LoginActivity,
-                        "Gmail giriş başarısız: ${error?.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    // Firestore hatası olsa bile kullanıcı giriş yapmışsa devam et
+                    val currentUser = auth.currentUser
+                    if (currentUser != null) {
+                        println("DEBUG: Firestore hatası var ama kullanıcı giriş yapmış, devam ediliyor")
+
+                        Toast.makeText(
+                            this@LoginActivity,
+                            "Giriş başarılı! (Bazı özellikler sınırlı olabilir)",
+                            Toast.LENGTH_LONG
+                        ).show()
+
+                        binding.root.postDelayed({
+                            navigateToGroupSelection()
+                        }, 1000)
+                    } else {
+                        Toast.makeText(
+                            this@LoginActivity,
+                            "Gmail giriş başarısız: ${error?.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             } catch (e: Exception) {
                 hideLoading()
-                println("DEBUG: Gmail giriş exception: ${e.message}")
+                println("DEBUG: Google giriş exception: ${e.message}")
                 e.printStackTrace()
 
-                Toast.makeText(
-                    this@LoginActivity,
-                    "Gmail giriş hatası: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
+                // Exception olsa bile kullanıcı giriş yapmışsa devam et
+                val currentUser = auth.currentUser
+                if (currentUser != null) {
+                    println("DEBUG: Exception var ama kullanıcı giriş yapmış, devam ediliyor")
+
+                    Toast.makeText(
+                        this@LoginActivity,
+                        "Giriş tamamlandı! (Bağlantı sorunları olabilir)",
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                    binding.root.postDelayed({
+                        navigateToGroupSelection()
+                    }, 1000)
+                } else {
+                    Toast.makeText(
+                        this@LoginActivity,
+                        "Gmail giriş hatası: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
     }
 
     /**
-     * Email giriş dialog'u göster - Sadece giriş
+     * Email giriş dialog'u göster
      */
     private fun showEmailLoginDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_email_login_only, null)
@@ -207,15 +260,22 @@ class LoginActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
+                println("DEBUG: Email ile giriş başlıyor: $email")
+
                 val result = auth.signInWithEmailAndPassword(email, password).await()
                 val user = result.user
 
                 if (user != null) {
+                    println("DEBUG: Email giriş başarılı: ${user.email}")
+
                     hideLoading()
                     Toast.makeText(this@LoginActivity,
                         "Hoş geldiniz, ${user.email}! 🎉",
                         Toast.LENGTH_SHORT).show()
-                    navigateToGroupSelection()
+
+                    binding.root.postDelayed({
+                        navigateToGroupSelection()
+                    }, 1000)
                 } else {
                     hideLoading()
                     Toast.makeText(this@LoginActivity, "Email giriş başarısız", Toast.LENGTH_SHORT).show()
@@ -223,6 +283,8 @@ class LoginActivity : AppCompatActivity() {
 
             } catch (e: Exception) {
                 hideLoading()
+                println("DEBUG: Email giriş hatası: ${e.message}")
+
                 val errorMessage = when {
                     e.message?.contains("invalid-email") == true -> "Geçersiz email adresi"
                     e.message?.contains("wrong-password") == true -> "Yanlış şifre"
@@ -237,35 +299,73 @@ class LoginActivity : AppCompatActivity() {
     }
 
     /**
-     * Grup seçim ekranına git
+     * Grup seçim ekranına git - Güvenli navigation
      */
     private fun navigateToGroupSelection() {
-        val intent = Intent(this, GroupSelectionActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
+        try {
+            println("DEBUG: GroupSelectionActivity'ye yönlendirme başlıyor...")
+
+            val intent = Intent(this, GroupSelectionActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+
+            println("DEBUG: Intent oluşturuldu, startActivity çağrılıyor...")
+            startActivity(intent)
+
+            println("DEBUG: startActivity çağrıldı, finish() çağrılıyor...")
+            finish()
+
+            println("DEBUG: Navigation tamamlandı")
+        } catch (e: Exception) {
+            println("DEBUG: Navigation hatası: ${e.message}")
+            e.printStackTrace()
+
+            Toast.makeText(this, "Sayfa yönlendirme hatası: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     /**
      * Loading göstergisini göster
      */
     private fun showLoading(message: String) {
-        binding.progressLoading.visibility = View.VISIBLE
-        binding.tvLoadingStatus.visibility = View.VISIBLE
-        binding.tvLoadingStatus.text = message
-        binding.btnGoogleSignin.isEnabled = false
-        binding.btnEmailSignin.isEnabled = false
-        binding.btnRegister.isEnabled = false
+        runOnUiThread {
+            binding.progressLoading.visibility = View.VISIBLE
+            binding.tvLoadingStatus.visibility = View.VISIBLE
+            binding.tvLoadingStatus.text = message
+            binding.btnGoogleSignin.isEnabled = false
+            binding.btnEmailSignin.isEnabled = false
+            binding.btnRegister.isEnabled = false
+
+            println("DEBUG: Loading gösteriliyor: $message")
+        }
     }
 
     /**
      * Loading göstergisini gizle
      */
     private fun hideLoading() {
-        binding.progressLoading.visibility = View.GONE
-        binding.tvLoadingStatus.visibility = View.GONE
-        binding.btnGoogleSignin.isEnabled = true
-        binding.btnEmailSignin.isEnabled = true
-        binding.btnRegister.isEnabled = true
+        runOnUiThread {
+            binding.progressLoading.visibility = View.GONE
+            binding.tvLoadingStatus.visibility = View.GONE
+            binding.btnGoogleSignin.isEnabled = true
+            binding.btnEmailSignin.isEnabled = true
+            binding.btnRegister.isEnabled = true
+
+            println("DEBUG: Loading gizlendi")
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        println("DEBUG: LoginActivity onResume")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        println("DEBUG: LoginActivity onPause")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        println("DEBUG: LoginActivity onDestroy")
     }
 }

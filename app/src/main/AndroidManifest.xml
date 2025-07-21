@@ -32,9 +32,9 @@
         android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
 
-        <!-- LoginActivity - LAUNCHER (Ana giriş) -->
+        <!-- ✅ LoginActivity - LAUNCHER (Ana giriş) -->
         <activity
-            android:name=".LoginActivity"
+            android:name="com.fabrika.s5takip.LoginActivity"
             android:exported="true"
             android:screenOrientation="portrait">
             <intent-filter>
@@ -43,120 +43,120 @@
             </intent-filter>
         </activity>
 
-        <!-- Group Selection Activity -->
+        <!-- ✅ Group Selection Activity - Login sonrası ilk sayfa -->
         <activity
-            android:name=".GroupSelectionActivity"
+            android:name="com.fabrika.s5takip.GroupSelectionActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
-        <!-- MainActivity - Ana uygulama -->
+        <!-- ✅ MainActivity - Grup seçimi sonrası ana uygulama -->
         <activity
-            android:name=".MainActivity"
+            android:name="com.fabrika.s5takip.MainActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
-        <!-- Grup Ayarları Activity - YENİ! -->
+        <!-- Kayıt Olma Activity -->
         <activity
-            android:name=".GroupSettingsActivity"
+            android:name="com.fabrika.s5takip.RegisterActivity"
             android:exported="false"
-            android:parentActivityName=".MainActivity"
+            android:parentActivityName="com.fabrika.s5takip.LoginActivity"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.fabrika.s5takip.LoginActivity" />
+        </activity>
+
+        <!-- Grup Ayarları Activity -->
+        <activity
+            android:name="com.fabrika.s5takip.GroupSettingsActivity"
+            android:exported="false"
+            android:parentActivityName="com.fabrika.s5takip.MainActivity"
             android:screenOrientation="portrait">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MainActivity" />
+                android:value="com.fabrika.s5takip.MainActivity" />
         </activity>
 
-        <!-- Profil Düzenleme Activity - YENİ! -->
+        <!-- Profil Düzenleme Activity -->
         <activity
-            android:name=".EditProfileActivity"
+            android:name="com.fabrika.s5takip.EditProfileActivity"
             android:exported="false"
-            android:parentActivityName=".MainActivity"
+            android:parentActivityName="com.fabrika.s5takip.MainActivity"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MainActivity" />
+                android:value="com.fabrika.s5takip.MainActivity" />
         </activity>
 
-        <!-- Kayıt Olma Activity - YENİ! -->
+        <!-- Grup Sohbeti Activity -->
         <activity
-            android:name=".RegisterActivity"
+            android:name="com.fabrika.s5takip.GroupChatActivity"
             android:exported="false"
-            android:parentActivityName=".LoginActivity"
+            android:parentActivityName="com.fabrika.s5takip.MainActivity"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".LoginActivity" />
-        </activity>
-
-        <!-- Grup Sohbeti Activity - YENİ! -->
-        <activity
-            android:name=".GroupChatActivity"
-            android:exported="false"
-            android:parentActivityName=".MainActivity"
-            android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustResize">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MainActivity" />
+                android:value="com.fabrika.s5takip.MainActivity" />
         </activity>
 
         <!-- Problem Ekleme Activity -->
         <activity
-            android:name=".AddProblemActivity"
+            android:name="com.fabrika.s5takip.AddProblemActivity"
             android:exported="false"
-            android:parentActivityName=".MainActivity"
+            android:parentActivityName="com.fabrika.s5takip.MainActivity"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MainActivity" />
+                android:value="com.fabrika.s5takip.MainActivity" />
         </activity>
 
         <!-- Problem Listesi Activity -->
         <activity
-            android:name=".ProblemsListActivity"
+            android:name="com.fabrika.s5takip.ProblemsListActivity"
             android:exported="false"
-            android:parentActivityName=".MainActivity"
+            android:parentActivityName="com.fabrika.s5takip.MainActivity"
             android:screenOrientation="portrait">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MainActivity" />
+                android:value="com.fabrika.s5takip.MainActivity" />
         </activity>
 
         <!-- Problem Detay Activity -->
         <activity
-            android:name=".ProblemDetailActivity"
+            android:name="com.fabrika.s5takip.ProblemDetailActivity"
             android:exported="false"
-            android:parentActivityName=".ProblemsListActivity"
+            android:parentActivityName="com.fabrika.s5takip.ProblemsListActivity"
             android:screenOrientation="portrait">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".ProblemsListActivity" />
+                android:value="com.fabrika.s5takip.ProblemsListActivity" />
         </activity>
 
         <!-- Çözüm Ekleme Activity -->
         <activity
-            android:name=".AddSolutionActivity"
+            android:name="com.fabrika.s5takip.AddSolutionActivity"
             android:exported="false"
-            android:parentActivityName=".ProblemDetailActivity"
+            android:parentActivityName="com.fabrika.s5takip.ProblemDetailActivity"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".ProblemDetailActivity" />
+                android:value="com.fabrika.s5takip.ProblemDetailActivity" />
         </activity>
 
         <!-- Rapor Activity -->
         <activity
-            android:name=".ReportActivity"
+            android:name="com.fabrika.s5takip.ReportActivity"
             android:exported="false"
-            android:parentActivityName=".MainActivity"
+            android:parentActivityName="com.fabrika.s5takip.MainActivity"
             android:screenOrientation="portrait">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MainActivity" />
+                android:value="com.fabrika.s5takip.MainActivity" />
         </activity>
 
         <!-- FileProvider for sharing files -->

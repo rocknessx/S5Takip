@@ -12,7 +12,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.*
 
 /**
- * Firebase işlemlerini yöneten sınıf - Son güncel versiyon
+ * Firebase işlemlerini yöneten sınıf - Tamamen Düzeltilmiş Versiyon
  */
 class FirebaseManager private constructor() {
 
@@ -28,14 +28,14 @@ class FirebaseManager private constructor() {
     }
 
     private val auth = FirebaseAuth.getInstance()
-    private val firestore = FirebaseFirestore.getInstance("s5takip") // Özel database
+    private val firestore = FirebaseFirestore.getInstance() // Özel veritabanı adı kaldırıldı
 
     /**
-     * Google Sign-In Client oluştur - Otomatik Web Client ID ile
+     * Google Sign-In Client oluştur
      */
     fun getGoogleSignInClient(context: Context): GoogleSignInClient {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(context.getString(R.string.default_web_client_id)) // Otomatik
+            .requestIdToken(context.getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
 
@@ -43,7 +43,7 @@ class FirebaseManager private constructor() {
     }
 
     /**
-     * Google hesabıyla Firebase'e giriş yap - Düzeltilmiş versiyon
+     * Google hesabıyla Firebase'e giriş yap - Basitleştirilmiş Versiyon
      */
     suspend fun signInWithGoogle(account: GoogleSignInAccount): Result<AppUser> {
         return try {
@@ -68,13 +68,13 @@ class FirebaseManager private constructor() {
 
                 println("DEBUG: AppUser objesi oluşturuldu: ${appUser.displayName}")
 
-                // Kullanıcıyı Firestore'a kaydet
+                // Firestore kaydetmeyi dene, ama hata olsa bile devam et
                 try {
                     saveUserToFirestore(appUser)
                     println("DEBUG: Kullanıcı Firestore'a kaydedildi")
                 } catch (e: Exception) {
-                    println("DEBUG: Firestore kaydetme hatası (devam ediliyor): ${e.message}")
-                    // Firestore hatası olsa bile devam et
+                    println("DEBUG: Firestore kaydetme hatası (görmezden geliniyor): ${e.message}")
+                    // Firestore hatası olsa bile kullanıcı girişini başarılı say
                 }
 
                 Result.success(appUser)
@@ -90,54 +90,84 @@ class FirebaseManager private constructor() {
     }
 
     /**
-     * Kullanıcıyı Firestore'a kaydet
+     * Kullanıcıyı Firestore'a kaydet - Hata toleranslı
      */
     private suspend fun saveUserToFirestore(user: AppUser) {
         try {
             println("DEBUG: Kullanıcı Firestore'a kaydediliyor: ${user.email}")
 
+            val userData = hashMapOf<String, Any>(
+                "id" to user.id,
+                "email" to user.email,
+                "displayName" to user.displayName,
+                "firstName" to user.firstName,
+                "lastName" to user.lastName,
+                "avatarUrl" to user.avatarUrl,
+                "currentGroupId" to user.currentGroupId,
+                "createdAt" to user.createdAt
+            )
+
             firestore.collection("users")
                 .document(user.id)
-                .set(user.toMap()) // Map kullan
+                .set(userData)
                 .await()
 
             println("DEBUG: Kullanıcı başarıyla kaydedildi")
         } catch (e: Exception) {
             println("DEBUG: Kullanıcı kaydetme hatası: ${e.message}")
-            e.printStackTrace()
+            // Hatayı yeniden fırlat, böylece çağıran fonksiyon hata hakkında bilgi sahibi olur
+            throw e
         }
     }
 
     /**
-     * Firestore bağlantısını test et - TYPE SAFE
+     * Firestore bağlantısını test et - Güvenli versiyon
      */
-    suspend fun testFirestoreWrite(data: Map<String, Any>): Result<Unit> {
+    suspend fun testFirestoreConnection(): Result<Unit> {
         return try {
-            println("DEBUG: Firestore test yazma başladı")
+            println("DEBUG: Firestore bağlantısı test ediliyor...")
 
-            // Type safe Map oluştur
-            val testData = hashMapOf<String, Any>().apply {
-                put("test", "connection")
-                put("timestamp", System.currentTimeMillis())
-                put("status", "active")
-            }
+            val testData = hashMapOf<String, Any>(
+                "test" to "connection",
+                "timestamp" to System.currentTimeMillis(),
+                "user" to (getCurrentUser()?.email ?: "anonymous")
+            )
 
             firestore.collection("test")
                 .document("connection_test")
                 .set(testData)
                 .await()
 
-            println("DEBUG: Firestore test yazma başarılı")
+            println("DEBUG: Firestore test başarılı")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("DEBUG: Firestore test yazma hatası: ${e.message}")
-            e.printStackTrace()
+            println("DEBUG: Firestore test hatası: ${e.message}")
             Result.failure(e)
         }
     }
 
     /**
-     * Grup oluştur - Map ile düzeltilmiş versiyon
+     * Firestore'a test yazma işlemi - GroupChatActivity için
+     */
+    suspend fun testFirestoreWrite(data: Map<String, Any>): Result<Unit> {
+        return try {
+            println("DEBUG: Firestore test yazma başladı")
+
+            firestore.collection("test")
+                .document("chat_test_${System.currentTimeMillis()}")
+                .set(data)
+                .await()
+
+            println("DEBUG: Firestore test yazma başarılı")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            println("DEBUG: Firestore test yazma hatası: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Grup oluştur - Sadeleştirilmiş versiyon
      */
     suspend fun createGroup(groupName: String, description: String): Result<Group> {
         return try {
@@ -166,11 +196,21 @@ class FirebaseManager private constructor() {
 
             println("DEBUG: Grup objesi oluşturuldu - ID: $groupId, Kod: $inviteCode")
 
-            // Grubu Map olarak Firestore'a kaydet
-            println("DEBUG: Grup Map olarak Firestore'a kaydediliyor...")
+            // Grubu Firestore'a kaydet
+            val groupData = hashMapOf<String, Any>(
+                "id" to group.id,
+                "name" to group.name,
+                "description" to group.description,
+                "inviteCode" to group.inviteCode,
+                "ownerId" to group.ownerId,
+                "ownerName" to group.ownerName,
+                "createdAt" to group.createdAt,
+                "memberCount" to group.memberCount
+            )
+
             firestore.collection("groups")
                 .document(groupId)
-                .set(group.toMap()) // Map kullan
+                .set(groupData)
                 .await()
 
             println("DEBUG: Grup başarıyla kaydedildi!")
@@ -186,15 +226,23 @@ class FirebaseManager private constructor() {
                 role = GroupRoles.OWNER
             )
 
-            println("DEBUG: Üyelik Map olarak kaydediliyor...")
+            val memberData = hashMapOf<String, Any>(
+                "id" to ownerMembership.id,
+                "groupId" to ownerMembership.groupId,
+                "userId" to ownerMembership.userId,
+                "userEmail" to ownerMembership.userEmail,
+                "userName" to ownerMembership.userName,
+                "userAvatar" to ownerMembership.userAvatar,
+                "role" to ownerMembership.role,
+                "joinedAt" to ownerMembership.joinedAt
+            )
+
             firestore.collection("group_members")
                 .document(ownerMembership.id)
-                .set(ownerMembership.toMap()) // Map kullan
+                .set(memberData)
                 .await()
 
             println("DEBUG: Üyelik başarıyla kaydedildi!")
-            println("DEBUG: Grup oluşturma tamamlandı!")
-
             Result.success(group)
         } catch (e: Exception) {
             println("DEBUG: createGroup hatası: ${e.message}")
@@ -204,7 +252,7 @@ class FirebaseManager private constructor() {
     }
 
     /**
-     * Gruba katıl - Map ile düzeltilmiş versiyon
+     * Gruba katıl
      */
     suspend fun joinGroup(inviteCode: String): Result<Group> {
         return try {
@@ -216,18 +264,15 @@ class FirebaseManager private constructor() {
             }
 
             // Invite code ile grubu bul
-            println("DEBUG: Davet kodu ile grup aranıyor...")
             val querySnapshot = firestore.collection("groups")
                 .whereEqualTo("inviteCode", inviteCode)
                 .get()
                 .await()
 
             if (querySnapshot.isEmpty) {
-                println("DEBUG: Geçersiz davet kodu")
                 return Result.failure(Exception("Geçersiz davet kodu"))
             }
 
-            // Map'ten Group'a dönüştür
             val groupMap = querySnapshot.documents.first().data
             val group = if (groupMap != null) {
                 Group.fromMap(groupMap)
@@ -235,10 +280,7 @@ class FirebaseManager private constructor() {
                 return Result.failure(Exception("Grup bilgisi alınamadı"))
             }
 
-            println("DEBUG: Grup bulundu: ${group.name}")
-
             // Kullanıcı zaten üye mi kontrol et
-            println("DEBUG: Mevcut üyelik kontrol ediliyor...")
             val memberCheck = firestore.collection("group_members")
                 .whereEqualTo("groupId", group.id)
                 .whereEqualTo("userId", currentUser.uid)
@@ -246,7 +288,6 @@ class FirebaseManager private constructor() {
                 .await()
 
             if (!memberCheck.isEmpty) {
-                println("DEBUG: Kullanıcı zaten üye")
                 return Result.failure(Exception("Zaten bu grubun üyesisiniz"))
             }
 
@@ -261,10 +302,20 @@ class FirebaseManager private constructor() {
                 role = GroupRoles.MEMBER
             )
 
-            println("DEBUG: Yeni üyelik Map olarak kaydediliyor...")
+            val memberData = hashMapOf<String, Any>(
+                "id" to membership.id,
+                "groupId" to membership.groupId,
+                "userId" to membership.userId,
+                "userEmail" to membership.userEmail,
+                "userName" to membership.userName,
+                "userAvatar" to membership.userAvatar,
+                "role" to membership.role,
+                "joinedAt" to membership.joinedAt
+            )
+
             firestore.collection("group_members")
                 .document(membership.id)
-                .set(membership.toMap()) // Map kullan
+                .set(memberData)
                 .await()
 
             println("DEBUG: Gruba katılma başarılı!")
@@ -277,7 +328,7 @@ class FirebaseManager private constructor() {
     }
 
     /**
-     * Kullanıcının gruplarını getir - Map ile düzeltilmiş versiyon
+     * Kullanıcının gruplarını getir
      */
     suspend fun getUserGroups(): Result<List<Group>> {
         return try {
@@ -289,7 +340,6 @@ class FirebaseManager private constructor() {
             }
 
             // Kullanıcının üye olduğu grupları bul
-            println("DEBUG: Kullanıcının üyelikleri aranıyor...")
             val memberships = firestore.collection("group_members")
                 .whereEqualTo("userId", currentUser.uid)
                 .get()
@@ -302,17 +352,13 @@ class FirebaseManager private constructor() {
                 } else null
             }
 
-            println("DEBUG: Bulunan grup ID'leri: ${groupIds.size} adet")
-
             if (groupIds.isEmpty()) {
-                println("DEBUG: Kullanıcının hiç grubu yok")
                 return Result.success(emptyList())
             }
 
             // Grup bilgilerini getir
             val groups = mutableListOf<Group>()
             for (groupId in groupIds) {
-                println("DEBUG: Grup bilgisi alınıyor: $groupId")
                 val groupDoc = firestore.collection("groups")
                     .document(groupId)
                     .get()
@@ -322,11 +368,9 @@ class FirebaseManager private constructor() {
                 if (groupData != null) {
                     val group = Group.fromMap(groupData)
                     groups.add(group)
-                    println("DEBUG: Grup eklendi: ${group.name}")
                 }
             }
 
-            println("DEBUG: Toplam ${groups.size} grup bulundu")
             Result.success(groups)
         } catch (e: Exception) {
             println("DEBUG: getUserGroups hatası: ${e.message}")
@@ -340,8 +384,6 @@ class FirebaseManager private constructor() {
      */
     suspend fun getGroupMembers(groupId: String): Result<List<GroupMember>> {
         return try {
-            println("DEBUG: getGroupMembers başladı - Grup ID: $groupId")
-
             val memberships = firestore.collection("group_members")
                 .whereEqualTo("groupId", groupId)
                 .get()
@@ -354,7 +396,6 @@ class FirebaseManager private constructor() {
                 } else null
             }
 
-            println("DEBUG: ${members.size} üye bulundu")
             Result.success(members)
         } catch (e: Exception) {
             println("DEBUG: getGroupMembers hatası: ${e.message}")
@@ -368,14 +409,21 @@ class FirebaseManager private constructor() {
      */
     suspend fun saveWeeklyAuditor(weeklyAuditor: WeeklyAuditor): Result<Unit> {
         return try {
-            println("DEBUG: Haftalık denetmen kaydediliyor...")
+            val auditorData = hashMapOf<String, Any>(
+                "id" to weeklyAuditor.id,
+                "groupId" to weeklyAuditor.groupId,
+                "weekDay" to weeklyAuditor.weekDay,
+                "auditorId" to weeklyAuditor.auditorId,
+                "auditorName" to weeklyAuditor.auditorName,
+                "assignedBy" to weeklyAuditor.assignedBy,
+                "assignedAt" to weeklyAuditor.assignedAt
+            )
 
             firestore.collection("weekly_auditors")
                 .document(weeklyAuditor.id)
-                .set(weeklyAuditor.toMap())
+                .set(auditorData)
                 .await()
 
-            println("DEBUG: Haftalık denetmen başarıyla kaydedildi")
             Result.success(Unit)
         } catch (e: Exception) {
             println("DEBUG: Haftalık denetmen kaydetme hatası: ${e.message}")
@@ -389,8 +437,6 @@ class FirebaseManager private constructor() {
      */
     suspend fun getWeeklyAuditors(groupId: String): Result<List<WeeklyAuditor>> {
         return try {
-            println("DEBUG: Haftalık denetmenler getiriliyor...")
-
             val auditors = firestore.collection("weekly_auditors")
                 .whereEqualTo("groupId", groupId)
                 .get()
@@ -403,7 +449,6 @@ class FirebaseManager private constructor() {
                 } else null
             }
 
-            println("DEBUG: ${weeklyAuditors.size} haftalık denetmen bulundu")
             Result.success(weeklyAuditors)
         } catch (e: Exception) {
             println("DEBUG: Haftalık denetmenler getirme hatası: ${e.message}")
@@ -417,14 +462,22 @@ class FirebaseManager private constructor() {
      */
     suspend fun saveChatMessage(message: ChatMessage): Result<Unit> {
         return try {
-            println("DEBUG: Chat mesajı kaydediliyor...")
+            val messageData = hashMapOf<String, Any>(
+                "id" to message.id,
+                "groupId" to message.groupId,
+                "senderId" to message.senderId,
+                "senderName" to message.senderName,
+                "senderAvatar" to message.senderAvatar,
+                "message" to message.message,
+                "messageType" to message.messageType,
+                "createdAt" to message.createdAt
+            )
 
             firestore.collection("chat_messages")
                 .document(message.id)
-                .set(message.toMap())
+                .set(messageData)
                 .await()
 
-            println("DEBUG: Chat mesajı başarıyla kaydedildi")
             Result.success(Unit)
         } catch (e: Exception) {
             println("DEBUG: Chat mesajı kaydetme hatası: ${e.message}")
@@ -438,8 +491,6 @@ class FirebaseManager private constructor() {
      */
     suspend fun getChatMessages(groupId: String, limit: Int = 50): Result<List<ChatMessage>> {
         return try {
-            println("DEBUG: Chat mesajları getiriliyor...")
-
             val messages = firestore.collection("chat_messages")
                 .whereEqualTo("groupId", groupId)
                 .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
@@ -452,9 +503,8 @@ class FirebaseManager private constructor() {
                 if (data != null) {
                     ChatMessage.fromMap(data)
                 } else null
-            }.reversed() // Eski mesajdan yeniye sırala
+            }.reversed()
 
-            println("DEBUG: ${chatMessages.size} chat mesajı bulundu")
             Result.success(chatMessages)
         } catch (e: Exception) {
             println("DEBUG: Chat mesajları getirme hatası: ${e.message}")
