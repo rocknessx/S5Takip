@@ -13,7 +13,10 @@ import kotlinx.coroutines.launch
 import java.util.*
 
 /**
- * Grup ayarları ekranı - HATASIZ VERSİYON
+ * Grup ayarları ekranı - BASİT 3 ROL SİSTEMİ
+ * OWNER: Her şeyi yapabilir
+ * ADMIN: Denetmen ataması yapabilir
+ * MEMBER: Sadece görüntüleyebilir
  */
 class GroupSettingsActivity : AppCompatActivity() {
 
@@ -26,7 +29,10 @@ class GroupSettingsActivity : AppCompatActivity() {
     private var weeklyAuditors = mutableListOf<WeeklyAuditor>()
     private lateinit var membersAdapter: GroupMembersAdapter
     private lateinit var weeklyScheduleAdapter: WeeklyScheduleAdapter
-    private var isGroupOwner = false
+
+    // Basit yetki kontrolleri
+    private var currentUserRole: String = GroupRoles.MEMBER
+    private var canManageAuditors: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,12 +72,15 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * RecyclerView'ları ayarla - DÜZELTİLMİŞ VERSİYON
+     * RecyclerView'ları ayarla - ROL DEĞİŞTİRME DESTEKLİ
      */
     private fun setupRecyclerViews() {
-        // Grup üyeleri adapter
+        // Grup üyeleri adapter - Rol değiştirme için güncellenmiş
         membersAdapter = GroupMembersAdapter(groupMembers) { member ->
-            if (isGroupOwner) {
+            println("DEBUG: Üyeye tıklandı: ${member.userName} (${member.role})")
+
+            // OWNER ise rol değiştirme dialog'u, değilse profil göster
+            if (currentUserRole == GroupRoles.OWNER && member.role != GroupRoles.OWNER) {
                 showMemberRoleDialog(member)
             } else {
                 showMemberProfile(member)
@@ -80,13 +89,9 @@ class GroupSettingsActivity : AppCompatActivity() {
         binding.rvGroupMembers.layoutManager = LinearLayoutManager(this)
         binding.rvGroupMembers.adapter = membersAdapter
 
-        // Haftalık program adapter - 7 GÜN İLE
+        // Haftalık program adapter
         weeklyScheduleAdapter = WeeklyScheduleAdapter(weeklyAuditors, groupMembers) { weekDay ->
-            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-            val currentUserMember = groupMembers.find { it.userId == currentUserId }
-            val canManage = currentUserMember?.role == GroupRoles.OWNER || currentUserMember?.role == GroupRoles.ADMIN
-
-            if (canManage) {
+            if (canManageAuditors) {
                 showAuditorSelectionDialog(weekDay)
             } else {
                 showReadOnlyScheduleInfo(weekDay)
@@ -95,7 +100,248 @@ class GroupSettingsActivity : AppCompatActivity() {
         binding.rvWeeklySchedule.layoutManager = LinearLayoutManager(this)
         binding.rvWeeklySchedule.adapter = weeklyScheduleAdapter
 
-        println("DEBUG: RecyclerView'lar ayarlandı - WeeklyScheduleAdapter item count: ${weeklyScheduleAdapter.itemCount}")
+        println("DEBUG: RecyclerView'lar ayarlandı - Rol değiştirme destekli")
+    }
+
+    /**
+     * Üye rolünü değiştirme dialog'u - DÜZELTİLMİŞ VERSİYON
+     */
+    private fun showMemberRoleDialog(member: GroupMember) {
+        println("DEBUG: ==================== ROL DEĞİŞTİRME DIALOG'U ====================")
+        println("DEBUG: Seçilen üye: ${member.userName}")
+        println("DEBUG: Mevcut rol: ${member.role}")
+        println("DEBUG: Kullanıcı yetkisi - OWNER mu: ${currentUserRole == GroupRoles.OWNER}")
+
+        // Sadece OWNER rol değiştirebilir
+        if (currentUserRole != GroupRoles.OWNER) {
+            showMemberProfile(member) // Sadece profil göster
+            return
+        }
+
+        // Grup sahibinin rolü değiştirilemez
+        if (member.role == GroupRoles.OWNER) {
+            AlertDialog.Builder(this)
+                .setTitle("❌ İşlem Yapılamaz")
+                .setMessage("Grup sahibinin rolü değiştirilemez.\n\n${member.userName} grup sahibidir ve bu rol değiştirilemez.")
+                .setPositiveButton("Tamam", null)
+                .show()
+            return
+        }
+
+        // Rol seçenekleri ve açıklamaları
+        val roleOptions = arrayOf(
+            "👤 Üye - Sadece görüntüleme yetkisi",
+            "⭐ Yönetici - Denetmen ataması yapabilir"
+        )
+
+        val roleValues = arrayOf(
+            GroupRoles.MEMBER,
+            GroupRoles.ADMIN
+        )
+
+        // Mevcut rolün index'ini bul
+        val currentRoleIndex = when (member.role) {
+            GroupRoles.ADMIN -> 1
+            else -> 0 // MEMBER veya bilinmeyen -> MEMBER
+        }
+
+        println("DEBUG: Mevcut rol index: $currentRoleIndex")
+        println("DEBUG: Rol seçenekleri hazır, dialog açılıyor...")
+
+        // Rol değiştirme dialog'u
+        AlertDialog.Builder(this)
+            .setTitle("${member.userName} - Rol Değiştir")
+            .setSingleChoiceItems(roleOptions, currentRoleIndex) { dialog, which ->
+                val newRole = roleValues[which]
+                val newRoleName = when(newRole) {
+                    GroupRoles.ADMIN -> "⭐ Yönetici"
+                    else -> "👤 Üye"
+                }
+
+                println("DEBUG: ✅ Yeni rol seçildi: $newRole")
+
+                dialog.dismiss()
+
+                // Eğer aynı rol seçildiyse hiçbir şey yapma
+                if (newRole == member.role) {
+                    Toast.makeText(this, "${member.userName} zaten $newRoleName rolünde", Toast.LENGTH_SHORT).show()
+                    return@setSingleChoiceItems
+                }
+
+                // Onay dialog'u göster
+                showConfirmRoleChange(member, newRole, newRoleName)
+            }
+            .setNegativeButton("❌ İptal") { dialog, _ ->
+                println("DEBUG: Rol değiştirme iptal edildi")
+                dialog.dismiss()
+            }
+            .show()
+
+        println("DEBUG: Rol değiştirme dialog'u gösterildi")
+    }
+
+    /**
+     * Rol değişikliği onay dialog'u - AYRI FONKSİYON
+     */
+    private fun showConfirmRoleChange(member: GroupMember, newRole: String, newRoleName: String) {
+        val oldRoleName = when(member.role) {
+            GroupRoles.OWNER -> "👑 Grup Sahibi"
+            GroupRoles.ADMIN -> "⭐ Yönetici"
+            else -> "👤 Üye"
+        }
+
+        val confirmMessage = """
+        ${member.userName} kullanıcısının rolü değiştirilecek:
+        
+        🔄 Eski Rol: $oldRoleName
+        ➡️ Yeni Rol: $newRoleName
+        
+        Bu değişikliği onaylıyor musunuz?
+    """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle("Rol Değişikliğini Onayla")
+            .setMessage(confirmMessage)
+            .setPositiveButton("✅ Evet, Değiştir") { _, _ ->
+                performRoleChange(member, newRole, newRoleName)
+            }
+            .setNegativeButton("❌ İptal", null)
+            .show()
+    }
+
+    /**
+     * Rol değişikliğini gerçekleştir - İYİLEŞTİRİLMİŞ VERSİYON
+     */
+    private fun performRoleChange(member: GroupMember, newRole: String, newRoleName: String) {
+        println("DEBUG: ==================== ROL DEĞİŞİKLİĞİ BAŞLADI ====================")
+        println("DEBUG: Kullanıcı: ${member.userName}")
+        println("DEBUG: Eski rol: ${member.role}")
+        println("DEBUG: Yeni rol: $newRole")
+
+        // Loading dialog göster
+        val loadingDialog = AlertDialog.Builder(this)
+            .setTitle("⏳ Rol Güncelleniyor")
+            .setMessage("${member.userName} kullanıcısının rolü güncelleniyor...\n\nLütfen bekleyin.")
+            .setCancelable(false)
+            .create()
+        loadingDialog.show()
+
+        lifecycleScope.launch {
+            try {
+                // Yeni rol ile güncellenmiş üye objesi oluştur
+                val updatedMember = member.copy(role = newRole)
+
+                println("DEBUG: Firebase'e rol güncelleme isteği gönderiliyor...")
+                val result = firebaseManager.updateGroupMember(updatedMember)
+
+                runOnUiThread {
+                    loadingDialog.dismiss()
+
+                    if (result.isSuccess) {
+                        println("DEBUG: ✅ Rol başarıyla güncellendi!")
+
+                        // Local listeyi güncelle
+                        val memberIndex = groupMembers.indexOf(member)
+                        if (memberIndex != -1) {
+                            groupMembers[memberIndex] = updatedMember
+                            membersAdapter.notifyItemChanged(memberIndex)
+                            println("DEBUG: Local liste güncellendi, adapter bilgilendirildi")
+                        }
+
+                        // Başarı mesajı göster
+                        val successMessage = """
+                        ✅ Rol değişikliği başarılı!
+                        
+                        👤 Kullanıcı: ${member.userName}
+                        🎭 Yeni Rol: $newRoleName
+                        
+                        Yeni yetkiler hemen aktif olmuştur.
+                    """.trimIndent()
+
+                        AlertDialog.Builder(this@GroupSettingsActivity)
+                            .setTitle("İşlem Tamamlandı")
+                            .setMessage(successMessage)
+                            .setPositiveButton("Tamam") { _, _ ->
+                                // Grup verilerini yenile (güvenlik için)
+                                loadGroupData()
+                            }
+                            .show()
+
+                        // Eğer rol değişen kişi yönetici olduysa bilgilendir
+                        if (newRole == GroupRoles.ADMIN) {
+                            Toast.makeText(this@GroupSettingsActivity,
+                                "🎉 ${member.userName} artık yönetici! Denetmen ataması yapabilir.",
+                                Toast.LENGTH_LONG).show()
+                        }
+
+                    } else {
+                        val error = result.exceptionOrNull()?.message ?: "Bilinmeyen hata"
+                        println("DEBUG: ❌ Rol güncelleme başarısız: $error")
+
+                        AlertDialog.Builder(this@GroupSettingsActivity)
+                            .setTitle("❌ Rol Güncellenemedi")
+                            .setMessage("Rol güncellenirken hata oluştu:\n\n$error\n\nLütfen tekrar deneyin.")
+                            .setPositiveButton("Tamam", null)
+                            .setNeutralButton("Tekrar Dene") { _, _ ->
+                                // Tekrar deneme seçeneği
+                                showMemberRoleDialog(member)
+                            }
+                            .show()
+                    }
+                }
+
+            } catch (e: Exception) {
+                println("DEBUG: ❌ Rol güncelleme exception: ${e.message}")
+                e.printStackTrace()
+
+                runOnUiThread {
+                    loadingDialog.dismiss()
+
+                    AlertDialog.Builder(this@GroupSettingsActivity)
+                        .setTitle("💥 Beklenmeyen Hata")
+                        .setMessage("Rol güncellenirken beklenmeyen bir hata oluştu:\n\n${e.message}")
+                        .setPositiveButton("Tamam", null)
+                        .setNeutralButton("Tekrar Dene") { _, _ ->
+                            showMemberRoleDialog(member)
+                        }
+                        .show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Üye profilini göster - BASİTLEŞTİRİLMİŞ VERSİYON
+     */
+    private fun showMemberProfile(member: GroupMember) {
+        val roleText = when(member.role) {
+            GroupRoles.OWNER -> "👑 Grup Sahibi"
+            GroupRoles.ADMIN -> "⭐ Yönetici"
+            else -> "👤 Üye"
+        }
+
+        val message = """
+        👤 Ad: ${member.userName}
+        📧 Email: ${member.userEmail}
+        🎭 Rol: $roleText
+        📅 Katılma: ${formatDate(member.joinedAt)}
+        
+        ${if (currentUserRole != GroupRoles.OWNER) "ℹ️ Rol değiştirmek için grup sahibi yetkisi gereklidir." else ""}
+    """.trimIndent()
+
+        val dialogBuilder = AlertDialog.Builder(this)
+            .setTitle("Üye Profili")
+            .setMessage(message)
+            .setPositiveButton("Tamam", null)
+
+        // Sadece OWNER rol değiştirebilir ve üye OWNER değilse
+        if (currentUserRole == GroupRoles.OWNER && member.role != GroupRoles.OWNER) {
+            dialogBuilder.setNeutralButton("🎭 Rol Değiştir") { _, _ ->
+                showMemberRoleDialog(member)
+            }
+        }
+
+        dialogBuilder.show()
     }
 
     /**
@@ -109,282 +355,195 @@ class GroupSettingsActivity : AppCompatActivity() {
 
         // Davet kodu paylaş
         binding.btnShareInviteCode.setOnClickListener {
-            if (isGroupOwner) {
+            if (currentUserRole == GroupRoles.OWNER) {
                 shareInviteCode()
             }
         }
     }
 
     /**
-     * Üye rolünü değiştirme dialog'u
+     * Kullanıcının yetkilerini kontrol et - BASİTLEŞTİRİLMİŞ
      */
-    private fun showMemberRoleDialog(member: GroupMember) {
-        if (!isGroupOwner) {
-            showMemberProfile(member)
-            return
-        }
-
-        if (member.role == GroupRoles.OWNER) {
-            Toast.makeText(this, "Grup sahibinin rolü değiştirilemez", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val roles = arrayOf(
-            "👤 Üye - Sadece görüntüleme yetkisi",
-            "🔍 Denetmen - Problem ekleyebilir",
-            "⭐ Yönetici - Denetmen ataması yapabilir"
-        )
-
-        val roleValues = arrayOf(
-            GroupRoles.MEMBER,
-            GroupRoles.AUDITOR,
-            GroupRoles.ADMIN
-        )
-
-        val currentIndex = roleValues.indexOf(member.role)
-
-        AlertDialog.Builder(this)
-            .setTitle("${member.userName} - Rol Değiştir")
-            .setMessage("Mevcut rol: ${getRoleDisplayName(member.role)}\n\nYeni rol seçin:")
-            .setSingleChoiceItems(roles, currentIndex) { dialog, which ->
-                val newRole = roleValues[which]
-
-                AlertDialog.Builder(this@GroupSettingsActivity)
-                    .setTitle("Rol Değişikliğini Onayla")
-                    .setMessage("${member.userName} kullanıcısının rolü '${getRoleDisplayName(newRole)}' olarak değiştirilecek.\n\nOnaylıyor musunuz?")
-                    .setPositiveButton("Evet, Değiştir") { _, _ ->
-                        updateMemberRole(member, newRole)
-                    }
-                    .setNegativeButton("İptal", null)
-                    .show()
-
-                dialog.dismiss()
-            }
-            .setNegativeButton("İptal", null)
-            .show()
-    }
-
-    /**
-     * Rol adını görüntüleme formatında döndür
-     */
-    private fun getRoleDisplayName(role: String): String {
-        return when(role) {
-            GroupRoles.OWNER -> "👑 Grup Sahibi"
-            GroupRoles.ADMIN -> "⭐ Yönetici"
-            GroupRoles.AUDITOR -> "🔍 Denetmen"
-            GroupRoles.MEMBER -> "👤 Üye"
-            else -> "❓ Bilinmeyen"
-        }
-    }
-
-    /**
-     * Üye rolünü güncelle
-     */
-    private fun updateMemberRole(member: GroupMember, newRole: String) {
-        if (member.role == GroupRoles.OWNER) {
-            Toast.makeText(this, "Grup sahibinin rolü değiştirilemez", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val loadingDialog = AlertDialog.Builder(this)
-            .setTitle("Rol Güncelleniyor")
-            .setMessage("${member.userName} kullanıcısının rolü güncelleniyor...")
-            .setCancelable(false)
-            .create()
-        loadingDialog.show()
-
-        lifecycleScope.launch {
-            try {
-                val updatedMember = member.copy(role = newRole)
-                val result = firebaseManager.updateGroupMember(updatedMember)
-
-                runOnUiThread {
-                    loadingDialog.dismiss()
-
-                    if (result.isSuccess) {
-                        val index = groupMembers.indexOf(member)
-                        if (index != -1) {
-                            groupMembers[index] = updatedMember
-                            membersAdapter.notifyItemChanged(index)
-                        }
-
-                        val roleText = getRoleDisplayName(newRole)
-
-                        AlertDialog.Builder(this@GroupSettingsActivity)
-                            .setTitle("✅ Rol Güncellendi")
-                            .setMessage("${member.userName} artık $roleText rolünde!\n\nYeni yetkiler hemen aktif olacak.")
-                            .setPositiveButton("Tamam", null)
-                            .show()
-
-                        println("DEBUG: ✅ Rol güncellendi: ${member.userName} -> $newRole")
-                    } else {
-                        AlertDialog.Builder(this@GroupSettingsActivity)
-                            .setTitle("❌ Rol Güncellenemedi")
-                            .setMessage("Rol güncellenirken hata oluştu:\n\n${result.exceptionOrNull()?.message}")
-                            .setPositiveButton("Tamam", null)
-                            .show()
-
-                        println("DEBUG: ❌ Rol güncelleme hatası: ${result.exceptionOrNull()?.message}")
-                    }
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    loadingDialog.dismiss()
-
-                    AlertDialog.Builder(this@GroupSettingsActivity)
-                        .setTitle("💥 Beklenmeyen Hata")
-                        .setMessage("Rol güncellenirken beklenmeyen hata:\n\n${e.message}")
-                        .setPositiveButton("Tamam", null)
-                        .show()
-
-                    println("DEBUG: 💥 Exception: ${e.message}")
-                    e.printStackTrace()
-                }
-            }
-        }
-    }
-
-    /**
-     * Grup sahipliği kontrolü yap
-     */
-    private fun checkGroupOwnership() {
+    private fun checkUserPermissions() {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+        val currentUserMember = groupMembers.find { it.userId == currentUserId }
 
-        lifecycleScope.launch {
-            try {
-                val membersResult = firebaseManager.getGroupMembers(groupId)
-                if (membersResult.isSuccess) {
-                    val members = membersResult.getOrNull() ?: emptyList()
-                    val currentUserMember = members.find { it.userId == currentUserId }
+        currentUserRole = currentUserMember?.role ?: GroupRoles.MEMBER
+        canManageAuditors = (currentUserRole == GroupRoles.OWNER || currentUserRole == GroupRoles.ADMIN)
 
-                    isGroupOwner = currentUserMember?.role == GroupRoles.OWNER
-                    val isAdmin = currentUserMember?.role == GroupRoles.ADMIN
+        println("DEBUG: ==================== YETKİ KONTROLÜ ====================")
+        println("DEBUG: Mevcut kullanıcı ID: $currentUserId")
+        println("DEBUG: Mevcut kullanıcı rolü: $currentUserRole")
+        println("DEBUG: Denetmen ataması yapabilir mi: $canManageAuditors")
+        println("DEBUG: ==================================================")
 
-                    runOnUiThread {
-                        updateUIBasedOnPermissions(isAdmin)
-                    }
-                }
-            } catch (e: Exception) {
-                println("DEBUG: Grup sahipliği kontrolü hatası: ${e.message}")
-            }
-        }
+        updateUIBasedOnPermissions()
     }
 
     /**
-     * Yetkilere göre UI'ı güncelle
+     * Yetkilere göre UI'ı güncelle - BASİTLEŞTİRİLMİŞ
      */
-    private fun updateUIBasedOnPermissions(isAdmin: Boolean = false) {
-        val canManage = isGroupOwner || isAdmin
-
-        if (isGroupOwner) {
-            binding.btnShareInviteCode.visibility = View.VISIBLE
-            binding.tvScheduleDescription.text = "Grup sahibi olarak tüm ayarları yönetebilirsiniz. Günlere tıklayarak denetmen seçin."
-        } else if (isAdmin) {
-            binding.btnShareInviteCode.visibility = View.VISIBLE
-            binding.tvScheduleDescription.text = "Yönetici olarak denetmen atamaları yapabilirsiniz. Günlere tıklayarak denetmen seçin."
-        } else {
-            binding.btnShareInviteCode.visibility = View.GONE
-            binding.tvScheduleDescription.text = "Haftalık denetmen programını görüntülüyorsunuz. Değişiklik yapmak için grup sahibi veya yönetici ile iletişime geçin."
-        }
-
-        weeklyScheduleAdapter = WeeklyScheduleAdapter(weeklyAuditors, groupMembers) { weekDay ->
-            if (canManage) {
-                showAuditorSelectionDialog(weekDay)
-            } else {
-                showReadOnlyScheduleInfo(weekDay)
+    private fun updateUIBasedOnPermissions() {
+        when (currentUserRole) {
+            GroupRoles.OWNER -> {
+                binding.btnShareInviteCode.visibility = View.VISIBLE
+                binding.tvScheduleDescription.text = "👑 Grup sahibi olarak tüm ayarları yönetebilirsiniz. Günlere tıklayarak denetmen atayın."
+            }
+            GroupRoles.ADMIN -> {
+                binding.btnShareInviteCode.visibility = View.GONE
+                binding.tvScheduleDescription.text = "⭐ Yönetici olarak denetmen atamaları yapabilirsiniz. Günlere tıklayarak denetmen atayın."
+            }
+            else -> {
+                binding.btnShareInviteCode.visibility = View.GONE
+                binding.tvScheduleDescription.text = "👤 Haftalık denetmen programını görüntülüyorsunuz. Atama yetkisi için grup sahibi ile iletişime geçin."
             }
         }
-        binding.rvWeeklySchedule.adapter = weeklyScheduleAdapter
+
+        updateWeeklyScheduleTitle()
     }
 
     /**
      * Haftalık program başlığını güncelle
      */
     private fun updateWeeklyScheduleTitle() {
-        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-        val currentUserMember = groupMembers.find { it.userId == currentUserId }
-        val canManage = currentUserMember?.role == GroupRoles.OWNER || currentUserMember?.role == GroupRoles.ADMIN
-
-        val titleText = if (canManage) {
+        val titleText = if (canManageAuditors) {
             "📅 Haftalık Denetmen Programı (Yönet)"
         } else {
             "📅 Haftalık Denetmen Programı (Görüntüle)"
         }
         binding.tvWeeklyScheduleTitle.text = titleText
     }
-
     /**
-     * Denetmen seçim dialog'u
+     * Denetmen seçim dialog'u - DÜZELTİLMİŞ VERSİYON
+     * setMessage ve setSingleChoiceItems birlikte kullanılamaz!
      */
     private fun showAuditorSelectionDialog(weekDay: Int) {
-        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-        val currentUserMember = groupMembers.find { it.userId == currentUserId }
-        val canManage = currentUserMember?.role == GroupRoles.OWNER || currentUserMember?.role == GroupRoles.ADMIN
+        println("DEBUG: ==================== DENETMEN SEÇİM DIALOG'U ====================")
+        println("DEBUG: canManageAuditors: $canManageAuditors")
+        println("DEBUG: currentUserRole: $currentUserRole")
 
-        if (!canManage) {
+        if (!canManageAuditors) {
             showReadOnlyScheduleInfo(weekDay)
             return
         }
 
         val dayName = getDayName(weekDay)
 
-        val eligibleMembers = groupMembers.filter {
-            it.role == GroupRoles.AUDITOR || it.role == GroupRoles.ADMIN || it.role == GroupRoles.OWNER
+        // TÜM ÜYELERİ GÖSTERİR - ROL FARKETMEZ
+        val allMembers = groupMembers.filter {
+            it.userId.isNotEmpty() && it.userName.isNotEmpty()
         }
 
-        if (eligibleMembers.isEmpty()) {
-            Toast.makeText(this, "Denetmen yetkisi olan üye bulunamadı", Toast.LENGTH_SHORT).show()
+        println("DEBUG: Toplam grup üyesi: ${groupMembers.size}")
+        println("DEBUG: Denetmen seçimi için filtrelenmiş üye sayısı: ${allMembers.size}")
+
+        allMembers.forEachIndexed { index, member ->
+            println("DEBUG: $index. ${member.userName} (${member.role}) - ID: ${member.userId}")
+        }
+
+        if (allMembers.isEmpty()) {
+            Toast.makeText(this, "❌ Grup üyesi bulunamadı!", Toast.LENGTH_LONG).show()
+            println("DEBUG: ❌ Hiç grup üyesi bulunamadı!")
             return
         }
 
-        val memberNames = eligibleMembers.map { member ->
-            val roleText = when(member.role) {
-                GroupRoles.OWNER -> " (Grup Sahibi)"
-                GroupRoles.ADMIN -> " (Yönetici)"
-                GroupRoles.AUDITOR -> " (Denetmen)"
-                else -> ""
+        // Üye adları ve rolleri
+        val memberDisplayNames = allMembers.map { member ->
+            val roleEmoji = when(member.role) {
+                GroupRoles.OWNER -> "👑"
+                GroupRoles.ADMIN -> "⭐"
+                else -> "👤"
             }
-            "${member.userName}$roleText"
+            "$roleEmoji ${member.userName}"
         }.toTypedArray()
 
+        // Mevcut denetmeni bul
         val currentAuditor = weeklyAuditors.find { it.weekDay == weekDay }
         val currentIndex = if (currentAuditor != null) {
-            eligibleMembers.indexOfFirst { it.userId == currentAuditor.auditorId }
+            allMembers.indexOfFirst { it.userId == currentAuditor.auditorId }
         } else {
             -1
         }
 
+        println("DEBUG: Mevcut denetmen: ${currentAuditor?.auditorName ?: "Yok"}")
+        println("DEBUG: Mevcut index: $currentIndex")
+        println("DEBUG: Üye listesi hazır, dialog açılıyor...")
+
+        // ✅ DÜZELTİLMİŞ DIALOG - setMessage kullanmıyoruz!
         AlertDialog.Builder(this)
-            .setTitle("$dayName Denetmeni Seç")
-            .setSingleChoiceItems(memberNames, currentIndex) { dialog, which ->
-                val selectedMember = eligibleMembers[which]
-                assignAuditorToDay(weekDay, selectedMember)
+            .setTitle("$dayName Denetmeni Seç\n\nGrup üyeleri arasından birini seçin:") // Başlıkta açıklama
+            // .setMessage() - KULLANMIYORUZ! setSingleChoiceItems ile çelişir
+            .setSingleChoiceItems(memberDisplayNames, currentIndex) { dialog, which ->
+                val selectedMember = allMembers[which]
+
+                println("DEBUG: ✅ Seçilen üye: ${selectedMember.userName} (${selectedMember.role})")
+
+                // Onay dialog'u
+                showConfirmAuditorAssignment(weekDay, selectedMember)
+
                 dialog.dismiss()
             }
-            .setNegativeButton("İptal", null)
-            .setNeutralButton("Kaldır") { _, _ ->
-                removeAuditorFromDay(weekDay)
+            .setNegativeButton("❌ İptal") { dialog, _ ->
+                println("DEBUG: Dialog iptal edildi")
+                dialog.dismiss()
             }
+            .setNeutralButton("🗑️ Denetmen Kaldır") { dialog, _ ->
+                dialog.dismiss()
+                if (currentAuditor != null) {
+                    showConfirmAuditorRemoval(weekDay, currentAuditor)
+                } else {
+                    Toast.makeText(this, "Bu gün için zaten denetmen yok", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
+
+        println("DEBUG: Dialog show() çağrıldı")
+    }
+
+    /**
+     * Denetmen ataması onay dialog'u - AYRI FONKSİYON
+     */
+    private fun showConfirmAuditorAssignment(weekDay: Int, selectedMember: GroupMember) {
+        val dayName = getDayName(weekDay)
+
+        val confirmMessage = """
+        ${selectedMember.userName} kişisini $dayName günü denetmeni yapmak istiyorsunuz.
+        
+        Bu kişi o gün:
+        • Problem ekleyebilir
+        • Çözümleri değerlendirebilir
+        
+        Onaylıyor musunuz?
+    """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle("Denetmen Atamasını Onayla")
+            .setMessage(confirmMessage) // Burada setMessage kullanabiliriz
+            .setPositiveButton("✅ Evet, Ata") { _, _ ->
+                assignAuditorToDay(weekDay, selectedMember)
+            }
+            .setNegativeButton("❌ İptal", null)
             .show()
     }
 
     /**
-     * Üye profilini göster
+     * Denetmen kaldırma onay dialog'u - AYRI FONKSİYON
      */
-    private fun showMemberProfile(member: GroupMember) {
-        val message = """
-            Ad: ${member.userName}
-            Email: ${member.userEmail}
-            Rol: ${member.role}
-            Katılma Tarihi: ${formatDate(member.joinedAt)}
-        """.trimIndent()
+    private fun showConfirmAuditorRemoval(weekDay: Int, auditor: WeeklyAuditor) {
+        val dayName = getDayName(weekDay)
 
         AlertDialog.Builder(this)
-            .setTitle("Üye Profili")
-            .setMessage(message)
-            .setPositiveButton("Tamam", null)
+            .setTitle("Denetmen Kaldır")
+            .setMessage("$dayName günü denetmenini (${auditor.auditorName}) kaldırmak istiyorsunuz.\n\nOnaylıyor musunuz?")
+            .setPositiveButton("✅ Evet, Kaldır") { _, _ ->
+                removeAuditorFromDay(weekDay)
+            }
+            .setNegativeButton("❌ İptal", null)
             .show()
     }
+
+
+
 
     /**
      * Sadece okuma modunda program bilgisi göster
@@ -395,9 +554,9 @@ class GroupSettingsActivity : AppCompatActivity() {
 
         val message = if (auditor != null) {
             val member = groupMembers.find { it.userId == auditor.auditorId }
-            "$dayName günü denetmeni: ${member?.userName ?: "Bilinmeyen"}"
+            "📅 $dayName günü denetmeni:\n👤 ${member?.userName ?: "Bilinmeyen"}"
         } else {
-            "$dayName günü için henüz denetmen atanmamış."
+            "📅 $dayName günü için henüz denetmen atanmamış."
         }
 
         AlertDialog.Builder(this)
@@ -411,6 +570,9 @@ class GroupSettingsActivity : AppCompatActivity() {
      * Denetmeni güne ata
      */
     private fun assignAuditorToDay(weekDay: Int, member: GroupMember) {
+        val dayName = getDayName(weekDay)
+        println("DEBUG: $dayName günü için denetmen atanıyor: ${member.userName}")
+
         lifecycleScope.launch {
             try {
                 val existingAuditor = weeklyAuditors.find { it.weekDay == weekDay }
@@ -429,6 +591,7 @@ class GroupSettingsActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     if (result.isSuccess) {
+                        // Listeyi güncelle
                         if (existingAuditor != null) {
                             val index = weeklyAuditors.indexOf(existingAuditor)
                             weeklyAuditors[index] = weeklyAuditor
@@ -438,20 +601,38 @@ class GroupSettingsActivity : AppCompatActivity() {
 
                         weeklyScheduleAdapter.notifyDataSetChanged()
 
-                        Toast.makeText(this@GroupSettingsActivity,
-                            "${member.userName} ${getDayName(weekDay)} gününe atandı!",
-                            Toast.LENGTH_SHORT).show()
+                        val successMessage = """
+                            ✅ Denetmen ataması başarılı!
+                            
+                            📅 Gün: $dayName
+                            👤 Denetmen: ${member.userName}
+                            
+                            ${member.userName} artık $dayName günü problem ekleyebilir.
+                        """.trimIndent()
+
+                        AlertDialog.Builder(this@GroupSettingsActivity)
+                            .setTitle("Atama Tamamlandı")
+                            .setMessage(successMessage)
+                            .setPositiveButton("Tamam", null)
+                            .show()
+
+                        println("DEBUG: ✅ $dayName günü denetmeni atandı: ${member.userName}")
                     } else {
                         Toast.makeText(this@GroupSettingsActivity,
-                            "Atama başarısız: ${result.exceptionOrNull()?.message}",
-                            Toast.LENGTH_SHORT).show()
+                            "❌ Atama başarısız: ${result.exceptionOrNull()?.message}",
+                            Toast.LENGTH_LONG).show()
+
+                        println("DEBUG: ❌ Denetmen atama hatası: ${result.exceptionOrNull()?.message}")
                     }
                 }
 
             } catch (e: Exception) {
+                println("DEBUG: ❌ assignAuditorToDay exception: ${e.message}")
+                e.printStackTrace()
+
                 runOnUiThread {
                     Toast.makeText(this@GroupSettingsActivity,
-                        "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
+                        "💥 Beklenmeyen hata: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -461,12 +642,33 @@ class GroupSettingsActivity : AppCompatActivity() {
      * Günden denetmeni kaldır
      */
     private fun removeAuditorFromDay(weekDay: Int) {
+        val dayName = getDayName(weekDay)
         val auditorToRemove = weeklyAuditors.find { it.weekDay == weekDay }
+
         if (auditorToRemove != null) {
+            println("DEBUG: $dayName günü denetmeni kaldırılıyor: ${auditorToRemove.auditorName}")
+
             weeklyAuditors.remove(auditorToRemove)
             weeklyScheduleAdapter.notifyDataSetChanged()
 
-            Toast.makeText(this, "${getDayName(weekDay)} denetmeni kaldırıldı", Toast.LENGTH_SHORT).show()
+            val successMessage = """
+                ✅ Denetmen kaldırıldı!
+                
+                📅 Gün: $dayName
+                👤 Kaldırılan: ${auditorToRemove.auditorName}
+                
+                Bu gün artık denetmensiz.
+            """.trimIndent()
+
+            AlertDialog.Builder(this@GroupSettingsActivity)
+                .setTitle("İşlem Tamamlandı")
+                .setMessage(successMessage)
+                .setPositiveButton("Tamam", null)
+                .show()
+
+            println("DEBUG: ✅ $dayName günü denetmeni kaldırıldı")
+        } else {
+            Toast.makeText(this, "Bu gün için zaten denetmen yok", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -474,7 +676,7 @@ class GroupSettingsActivity : AppCompatActivity() {
      * Davet kodunu paylaş
      */
     private fun shareInviteCode() {
-        Toast.makeText(this, "Davet kodu paylaşma özelliği eklenecek", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Davet kodu paylaşma özelliği yakında eklenecek", Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -494,18 +696,50 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
+     * Debug: Grup üyelerini logla
+     */
+    private fun debugGroupMembers() {
+        println("DEBUG: ==================== GRUP ÜYELERİ DEBUG ====================")
+        println("DEBUG: Toplam üye sayısı: ${groupMembers.size}")
+
+        if (groupMembers.isEmpty()) {
+            println("DEBUG: ❌ GRUP ÜYELERİ LİSTESİ BOŞ!")
+        } else {
+            groupMembers.forEachIndexed { index, member ->
+                println("DEBUG: $index. ${member.userName}")
+                println("DEBUG:    - Email: ${member.userEmail}")
+                println("DEBUG:    - Role: ${member.role}")
+                println("DEBUG:    - User ID: ${member.userId}")
+                println("DEBUG: ─────────────────────────────────────────")
+            }
+        }
+
+        println("DEBUG: ==================== HAFTALIK DENETMENLER ====================")
+        if (weeklyAuditors.isEmpty()) {
+            println("DEBUG: Henüz hiç denetmen atanmamış")
+        } else {
+            weeklyAuditors.forEach { auditor ->
+                println("DEBUG: ${getDayName(auditor.weekDay)}: ${auditor.auditorName}")
+            }
+        }
+        println("DEBUG: ================================================================")
+    }
+
+    /**
      * Grup verilerini yükle
      */
     private fun loadGroupData() {
         binding.progressLoading.visibility = View.VISIBLE
+        println("DEBUG: Grup verileri yükleniyor - Grup ID: $groupId")
 
         lifecycleScope.launch {
             try {
-                checkGroupOwnership()
-
+                // 1. Grup üyelerini yükle
                 val membersResult = firebaseManager.getGroupMembers(groupId)
                 if (membersResult.isSuccess) {
                     val members = membersResult.getOrNull() ?: emptyList()
+                    println("DEBUG: Firebase'den ${members.size} üye alındı")
+
                     groupMembers.clear()
                     groupMembers.addAll(members)
 
@@ -513,13 +747,22 @@ class GroupSettingsActivity : AppCompatActivity() {
                         membersAdapter.notifyDataSetChanged()
                         binding.tvMembersCount.text = "${groupMembers.size} üye"
 
-                        println("DEBUG: Grup üyeleri güncellendi:")
-                        groupMembers.forEach { member ->
-                            println("DEBUG: - ${member.userName} (${member.role})")
-                        }
+                        // Yetki kontrolünü yap
+                        checkUserPermissions()
+
+                        // Debug log'larını yazdır
+                        debugGroupMembers()
+                    }
+                } else {
+                    println("DEBUG: ❌ Grup üyeleri yüklenemedi: ${membersResult.exceptionOrNull()?.message}")
+                    runOnUiThread {
+                        Toast.makeText(this@GroupSettingsActivity,
+                            "Grup üyeleri yüklenemedi: ${membersResult.exceptionOrNull()?.message}",
+                            Toast.LENGTH_LONG).show()
                     }
                 }
 
+                // 2. Haftalık denetmenleri yükle
                 val auditorsResult = firebaseManager.getWeeklyAuditors(groupId)
                 if (auditorsResult.isSuccess) {
                     val auditors = auditorsResult.getOrNull() ?: emptyList()
@@ -528,11 +771,10 @@ class GroupSettingsActivity : AppCompatActivity() {
 
                     runOnUiThread {
                         weeklyScheduleAdapter.notifyDataSetChanged()
-                        updateWeeklyScheduleTitle()
-
-                        // ✅ DEBUG: Adapter item count'unu kontrol et
-                        println("DEBUG: WeeklyScheduleAdapter güncellendi - Item count: ${weeklyScheduleAdapter.itemCount}")
+                        println("DEBUG: ✅ Haftalık denetmenler yüklendi: ${auditors.size} atama")
                     }
+                } else {
+                    println("DEBUG: ❌ Haftalık denetmenler yüklenemedi: ${auditorsResult.exceptionOrNull()?.message}")
                 }
 
                 runOnUiThread {
@@ -540,6 +782,9 @@ class GroupSettingsActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
+                println("DEBUG: ❌ loadGroupData exception: ${e.message}")
+                e.printStackTrace()
+
                 runOnUiThread {
                     binding.progressLoading.visibility = View.GONE
                     Toast.makeText(this@GroupSettingsActivity,
@@ -562,7 +807,7 @@ class GroupSettingsActivity : AppCompatActivity() {
 }
 
 /**
- * Grup üyeleri için adapter
+ * Grup üyeleri için adapter - BASİTLEŞTİRİLMİŞ
  */
 class GroupMembersAdapter(
     private val members: List<GroupMember>,
@@ -631,7 +876,6 @@ class GroupMembersAdapter(
         val roleDisplayText = when (member.role) {
             GroupRoles.OWNER -> "👑 Grup Sahibi"
             GroupRoles.ADMIN -> "⭐ Yönetici"
-            GroupRoles.AUDITOR -> "🔍 Denetmen"
             else -> "👤 Üye"
         }
         roleText.text = roleDisplayText
@@ -657,7 +901,7 @@ class GroupMembersAdapter(
 }
 
 /**
- * Haftalık program için adapter - 7 GÜN DAHİL ✅
+ * Haftalık program için adapter - 7 GÜN
  */
 class WeeklyScheduleAdapter(
     private val weeklyAuditors: List<WeeklyAuditor>,
@@ -665,15 +909,9 @@ class WeeklyScheduleAdapter(
     private val onDayClick: (Int) -> Unit
 ) : androidx.recyclerview.widget.RecyclerView.Adapter<WeeklyScheduleAdapter.DayViewHolder>() {
 
-    // ✅ TÜM GÜNLER - 7 gün
     private val daysOfWeek = listOf(
-        1 to "Pazartesi",
-        2 to "Salı",
-        3 to "Çarşamba",
-        4 to "Perşembe",
-        5 to "Cuma",
-        6 to "Cumartesi",    // ✅ EKLENDI
-        7 to "Pazar"         // ✅ EKLENDI
+        1 to "Pazartesi", 2 to "Salı", 3 to "Çarşamba", 4 to "Perşembe",
+        5 to "Cuma", 6 to "Cumartesi", 7 to "Pazar"
     )
 
     class DayViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
@@ -700,8 +938,6 @@ class WeeklyScheduleAdapter(
         val (dayNumber, dayName) = daysOfWeek[position]
         val context = holder.itemView.context
 
-        println("DEBUG: Binding gün $position - $dayName (Gün numarası: $dayNumber)")
-
         val assignedAuditor = weeklyAuditors.find { it.weekDay == dayNumber }
         val auditorName = if (assignedAuditor != null) {
             members.find { it.userId == assignedAuditor.auditorId }?.userName ?: "Bilinmeyen"
@@ -716,8 +952,8 @@ class WeeklyScheduleAdapter(
             Calendar.WEDNESDAY -> 3
             Calendar.THURSDAY -> 4
             Calendar.FRIDAY -> 5
-            Calendar.SATURDAY -> 6      // ✅ Cumartesi
-            Calendar.SUNDAY -> 7        // ✅ Pazar
+            Calendar.SATURDAY -> 6
+            Calendar.SUNDAY -> 7
             else -> 0
         }
 
@@ -769,23 +1005,5 @@ class WeeklyScheduleAdapter(
         }
     }
 
-    override fun getItemCount(): Int {
-        println("DEBUG: WeeklyScheduleAdapter getItemCount() çağrıldı - Dönen değer: ${daysOfWeek.size}")
-        return daysOfWeek.size // ✅ Artık 7 döner (tüm günler)
-    }
-
-    companion object {
-        fun getDayName(weekDay: Int): String {
-            return when (weekDay) {
-                1 -> "Pazartesi"
-                2 -> "Salı"
-                3 -> "Çarşamba"
-                4 -> "Perşembe"
-                5 -> "Cuma"
-                6 -> "Cumartesi"    // ✅ EKLENDI
-                7 -> "Pazar"        // ✅ EKLENDI
-                else -> "Bilinmeyen"
-            }
-        }
-    }
+    override fun getItemCount(): Int = daysOfWeek.size
 }

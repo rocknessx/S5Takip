@@ -283,10 +283,9 @@ data class GroupMember(
  * Grup İçi Roller
  */
 object GroupRoles {
-    const val OWNER = "OWNER"     // Grup kurucusu
-    const val ADMIN = "ADMIN"     // Yönetici
-    const val AUDITOR = "AUDITOR" // Denetmen
-    const val MEMBER = "MEMBER"   // Üye
+    const val OWNER = "OWNER"     // 👑 Grup kurucusu - Her şeyi yapabilir
+    const val ADMIN = "ADMIN"     // ⭐ Yönetici - Denetmen ataması yapabilir
+    const val MEMBER = "MEMBER"   // 👤 Üye - Sadece görüntüleyebilir
 }
 
 /**
