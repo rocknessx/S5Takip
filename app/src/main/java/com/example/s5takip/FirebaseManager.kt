@@ -28,7 +28,8 @@ class FirebaseManager private constructor() {
     }
 
     private val auth = FirebaseAuth.getInstance()
-    private val firestore = FirebaseFirestore.getInstance() // Özel veritabanı adı kaldırıldı
+    private val firestore = FirebaseFirestore.getInstance("s5takip")
+
 
     /**
      * Google Sign-In Client oluştur
@@ -405,6 +406,38 @@ class FirebaseManager private constructor() {
     }
 
     /**
+     * Grup üyesinin bilgilerini güncelle
+     */
+    suspend fun updateGroupMember(updatedMember: GroupMember): Result<Unit> {
+        return try {
+            println("DEBUG: Grup üyesi güncelleniyor - ID: ${updatedMember.id}, Rol: ${updatedMember.role}")
+
+            val memberData = hashMapOf<String, Any>(
+                "id" to updatedMember.id,
+                "groupId" to updatedMember.groupId,
+                "userId" to updatedMember.userId,
+                "userEmail" to updatedMember.userEmail,
+                "userName" to updatedMember.userName,
+                "userAvatar" to updatedMember.userAvatar,
+                "role" to updatedMember.role,
+                "joinedAt" to updatedMember.joinedAt
+            )
+
+            firestore.collection("group_members")
+                .document(updatedMember.id)
+                .set(memberData)
+                .await()
+
+            println("DEBUG: ✅ Grup üyesi başarıyla güncellendi")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            println("DEBUG: ❌ Grup üyesi güncelleme hatası: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Haftalık denetmen ataması kaydet
      */
     suspend fun saveWeeklyAuditor(weeklyAuditor: WeeklyAuditor): Result<Unit> {
@@ -452,6 +485,24 @@ class FirebaseManager private constructor() {
             Result.success(weeklyAuditors)
         } catch (e: Exception) {
             println("DEBUG: Haftalık denetmenler getirme hatası: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Haftalık denetmen ataması sil
+     */
+    suspend fun deleteWeeklyAuditor(auditorId: String): Result<Unit> {
+        return try {
+            firestore.collection("weekly_auditors")
+                .document(auditorId)
+                .delete()
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            println("DEBUG: Haftalık denetmen silme hatası: ${e.message}")
             e.printStackTrace()
             Result.failure(e)
         }
