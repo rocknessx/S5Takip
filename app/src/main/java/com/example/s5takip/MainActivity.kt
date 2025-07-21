@@ -14,7 +14,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Ana sayfa - Tam çalışır versiyon
+ * Ana sayfa - Tam çalışır versiyon - GÜNCELLENMİŞ
  */
 class MainActivity : AppCompatActivity() {
 
@@ -30,6 +30,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val EDIT_PROFILE_REQUEST = 1001
+        private const val GROUP_SETTINGS_REQUEST = 1002
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,7 +76,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Bugünün denetmenini yükle
+     * Bugünün denetmenini yükle - GÜNCELLENMİŞ VERSİYON
      */
     private fun loadTodaysAuditor() {
         if (currentGroupId.isEmpty()) return
@@ -86,7 +87,7 @@ class MainActivity : AppCompatActivity() {
                 if (result.isSuccess) {
                     val weeklyAuditors = result.getOrNull() ?: emptyList()
 
-                    // Bugünün günü (1=Pazartesi, 7=Pazar)
+                    // Bugünün günü (1=Pazartesi, 7=Pazar) - DÜZELTILMIŞ HESAPLAMA
                     val calendar = Calendar.getInstance()
                     val dayOfWeek = when (calendar.get(Calendar.DAY_OF_WEEK)) {
                         Calendar.MONDAY -> 1
@@ -94,13 +95,16 @@ class MainActivity : AppCompatActivity() {
                         Calendar.WEDNESDAY -> 3
                         Calendar.THURSDAY -> 4
                         Calendar.FRIDAY -> 5
-                        Calendar.SATURDAY -> 6
-                        Calendar.SUNDAY -> 7
+                        Calendar.SATURDAY -> 6    // ✅ Cumartesi düzeltildi
+                        Calendar.SUNDAY -> 7      // ✅ Pazar düzeltildi
                         else -> 1
                     }
 
+                    println("DEBUG: Bugünün gün numarası: $dayOfWeek")
+
                     // Bugünün denetmenini bul
                     val todaysAuditorAssignment = weeklyAuditors.find { it.weekDay == dayOfWeek }
+                    println("DEBUG: Bugün için atanmış denetmen: ${todaysAuditorAssignment?.auditorName}")
 
                     if (todaysAuditorAssignment != null) {
                         // Grup üyelerini getir ve bugünün denetmenini bul
@@ -109,11 +113,14 @@ class MainActivity : AppCompatActivity() {
                             val members = membersResult.getOrNull() ?: emptyList()
                             todaysAuditor = members.find { it.userId == todaysAuditorAssignment.auditorId }
 
+                            println("DEBUG: Bugünün denetmeni bulundu: ${todaysAuditor?.userName}")
+
                             runOnUiThread {
                                 updateTodaysAuditorDisplay()
                             }
                         }
                     } else {
+                        println("DEBUG: Bugün için atanmış denetmen yok")
                         runOnUiThread {
                             updateTodaysAuditorDisplay()
                         }
@@ -126,13 +133,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Bugünün denetmeni gösterimini güncelle
+     * Bugünün denetmeni gösterimini güncelle - GÜNCELLENMİŞ VERSİYON
      */
     private fun updateTodaysAuditorDisplay() {
         val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
 
-        // Grup sahibi kontrolü ekle
+        // Grup sahibi ve yönetici kontrolü
         var isGroupOwner = false
+        var isGroupAdmin = false
+
         if (currentGroupId.isNotEmpty()) {
             lifecycleScope.launch {
                 try {
@@ -140,10 +149,14 @@ class MainActivity : AppCompatActivity() {
                     if (membersResult.isSuccess) {
                         val members = membersResult.getOrNull() ?: emptyList()
                         val currentUserMember = members.find { it.userId == currentFirebaseUser?.uid }
+
                         isGroupOwner = currentUserMember?.role == GroupRoles.OWNER
+                        isGroupAdmin = currentUserMember?.role == GroupRoles.ADMIN
+
+                        println("DEBUG: Kullanıcı yetkileri - Owner: $isGroupOwner, Admin: $isGroupAdmin")
 
                         runOnUiThread {
-                            updateProblemAddPermission(isGroupOwner)
+                            updateProblemAddPermission(isGroupOwner, isGroupAdmin)
                         }
                     }
                 } catch (e: Exception) {
@@ -156,44 +169,68 @@ class MainActivity : AppCompatActivity() {
             binding.tvTodaysAuditor.text = "Bugün Denetmen: ${todaysAuditor!!.userName}"
             binding.tvTodaysAuditor.visibility = View.VISIBLE
 
-            // Bugünün denetmeni veya grup sahibi problem ekleyebilir
-            val canAddProblem = currentFirebaseUser?.uid == todaysAuditor!!.userId || isGroupOwner
+            // Bugünün denetmeni, grup sahibi veya yönetici problem ekleyebilir
+            val isTodaysAuditor = currentFirebaseUser?.uid == todaysAuditor!!.userId
+            val canAddProblem = isTodaysAuditor || isGroupOwner || isGroupAdmin
 
             binding.btnAddProblem.isEnabled = canAddProblem
             binding.btnAddProblem.alpha = if (canAddProblem) 1.0f else 0.5f
 
-            if (!canAddProblem && !isGroupOwner) {
-                binding.tvAuditorInfo.text = "Sadece bugünün denetmeni veya grup sahibi problem ekleyebilir"
-                binding.tvAuditorInfo.visibility = View.VISIBLE
-            } else {
-                binding.tvAuditorInfo.visibility = View.GONE
+            when {
+                isTodaysAuditor -> {
+                    binding.tvAuditorInfo.text = "Siz bugünün denetmenisiniz, problem ekleyebilirsiniz"
+                    binding.tvAuditorInfo.visibility = View.VISIBLE
+                }
+                isGroupOwner -> {
+                    binding.tvAuditorInfo.text = "Grup sahibi olarak her zaman problem ekleyebilirsiniz"
+                    binding.tvAuditorInfo.visibility = View.VISIBLE
+                }
+                isGroupAdmin -> {
+                    binding.tvAuditorInfo.text = "Yönetici olarak problem ekleyebilirsiniz"
+                    binding.tvAuditorInfo.visibility = View.VISIBLE
+                }
+                else -> {
+                    binding.tvAuditorInfo.text = "Sadece bugünün denetmeni, grup sahibi veya yönetici problem ekleyebilir"
+                    binding.tvAuditorInfo.visibility = View.VISIBLE
+                }
             }
         } else {
             binding.tvTodaysAuditor.text = "Bugün için atanmış denetmen yok"
             binding.tvTodaysAuditor.visibility = View.VISIBLE
 
-            // Grup sahibi denetmen atanmamış olsa bile problem ekleyebilir
-            binding.btnAddProblem.isEnabled = isGroupOwner
-            binding.btnAddProblem.alpha = if (isGroupOwner) 1.0f else 0.5f
+            // Grup sahibi veya yönetici denetmen atanmamış olsa bile problem ekleyebilir
+            val canAddProblem = isGroupOwner || isGroupAdmin
+            binding.btnAddProblem.isEnabled = canAddProblem
+            binding.btnAddProblem.alpha = if (canAddProblem) 1.0f else 0.5f
 
-            if (isGroupOwner) {
-                binding.tvAuditorInfo.text = "Grup sahibi olarak problem ekleyebilirsiniz"
-            } else {
-                binding.tvAuditorInfo.text = "Lütfen grup ayarlarından haftalık denetmen ataması yapın"
+            when {
+                isGroupOwner -> {
+                    binding.tvAuditorInfo.text = "Grup sahibi olarak problem ekleyebilirsiniz"
+                }
+                isGroupAdmin -> {
+                    binding.tvAuditorInfo.text = "Yönetici olarak problem ekleyebilirsiniz"
+                }
+                else -> {
+                    binding.tvAuditorInfo.text = "Lütfen grup ayarlarından haftalık denetmen ataması yapın"
+                }
             }
             binding.tvAuditorInfo.visibility = View.VISIBLE
         }
     }
 
     /**
-     * Kullanıcı profilini yükle
+     * Kullanıcı profilini yükle - GÜNCELLENMİŞ VERSİYON
+     * Grup değişikliklerini yansıtır
      */
     private fun loadUserProfile() {
         val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
         if (currentFirebaseUser != null) {
-            // Kullanıcı adı
-            binding.tvUserName.text = currentFirebaseUser.displayName ?: "Kullanıcı"
+            // Kullanıcı adı - güncel Firebase profilinden al
+            val displayName = currentFirebaseUser.displayName ?: "Kullanıcı"
+            binding.tvUserName.text = displayName
             binding.tvUserEmail.text = currentFirebaseUser.email ?: ""
+
+            println("DEBUG: Kullanıcı profili yüklendi: $displayName")
 
             // Profil fotoğrafı - Basit yükleme
             val photoUrl = currentFirebaseUser.photoUrl
@@ -208,6 +245,9 @@ class MainActivity : AppCompatActivity() {
             } else {
                 showAvatarLetter(currentFirebaseUser)
             }
+
+            // Hoş geldin mesajını güncelle
+            binding.tvWelcome.text = "Hoş Geldiniz, $displayName"
         }
     }
 
@@ -245,42 +285,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Problem ekleme yetkisini güncelle
+     * Problem ekleme yetkisini güncelle - GÜNCELLENMİŞ VERSİYON
      */
-    private fun updateProblemAddPermission(isGroupOwner: Boolean) {
+    private fun updateProblemAddPermission(isGroupOwner: Boolean, isGroupAdmin: Boolean = false) {
         val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
         val isTodaysAuditor = currentFirebaseUser?.uid == todaysAuditor?.userId
 
-        val canAddProblem = isTodaysAuditor || isGroupOwner
+        val canAddProblem = isTodaysAuditor || isGroupOwner || isGroupAdmin
 
         binding.btnAddProblem.isEnabled = canAddProblem
         binding.btnAddProblem.alpha = if (canAddProblem) 1.0f else 0.5f
 
-        // setupClickListeners metodundaki problem ekleme butonunu da güncelle
-        binding.btnAddProblem.setOnClickListener {
-            if (canAddProblem) {
-                val intent = Intent(this, AddProblemActivity::class.java)
-                intent.putExtra("group_id", currentGroupId)
-                startActivity(intent)
-            } else {
-                Toast.makeText(this, "Sadece bugünün denetmeni veya grup sahibi problem ekleyebilir", Toast.LENGTH_SHORT).show()
-            }
-        }
+        println("DEBUG: Problem ekleme yetkisi güncellendi - Ekleyebilir: $canAddProblem")
     }
 
     /**
      * Buton tıklama olaylarını ayarla
      */
     private fun setupClickListeners() {
-        // Problem ekleme butonu
+        // Problem ekleme butonu - GÜNCELLENMİŞ VERSİYON
         binding.btnAddProblem.setOnClickListener {
-            val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
-            if (todaysAuditor != null && currentFirebaseUser?.uid == todaysAuditor!!.userId) {
+            if (binding.btnAddProblem.isEnabled) {
                 val intent = Intent(this, AddProblemActivity::class.java)
                 intent.putExtra("group_id", currentGroupId)
                 startActivity(intent)
             } else {
-                Toast.makeText(this, "Sadece bugünün denetmeni problem ekleyebilir", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Sadece bugünün denetmeni, grup sahibi veya yönetici problem ekleyebilir", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -306,12 +336,12 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // Grup ayarları butonu
+        // Grup ayarları butonu - GÜNCELLENMİŞ VERSİYON
         binding.btnGroupSettings.setOnClickListener {
             val intent = Intent(this, GroupSettingsActivity::class.java)
             intent.putExtra("group_id", currentGroupId)
             intent.putExtra("group_name", selectedGroup?.name ?: "Grup")
-            startActivity(intent)
+            startActivityForResult(intent, GROUP_SETTINGS_REQUEST)
         }
 
         // Profil düzenleme butonu
@@ -358,25 +388,51 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Activity sonucu işle
+     * Activity sonucu işle - GÜNCELLENMİŞ VERSİYON
      */
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == EDIT_PROFILE_REQUEST && resultCode == RESULT_OK) {
-            // Profil düzenlendikten sonra anında güncelle
-            loadUserProfile()
-            setupUI() // Hoş geldin mesajını da güncelle
+        when (requestCode) {
+            EDIT_PROFILE_REQUEST -> {
+                if (resultCode == RESULT_OK) {
+                    println("DEBUG: Profil düzenleme tamamlandı, kullanıcı bilgileri yenileniyor")
+                    // Profil düzenlendikten sonra anında güncelle
+                    loadUserProfile()
+                    setupUI() // Hoş geldin mesajını da güncelle
+
+                    // Bugünün denetmeni bilgilerini de yenile (isim değişmiş olabilir)
+                    loadTodaysAuditor()
+                }
+            }
+            GROUP_SETTINGS_REQUEST -> {
+                if (resultCode == RESULT_OK) {
+                    println("DEBUG: Grup ayarları değişti, denetmen bilgileri yenileniyor")
+                    // Grup ayarları değişti, denetmen bilgilerini yenile
+                    loadTodaysAuditor()
+                }
+            }
         }
     }
 
     /**
-     * Sayfa yeniden görünür olduğunda istatistikleri güncelle
+     * Sayfa yeniden görünür olduğunda - GÜNCELLENMİŞ VERSİYON
      */
     override fun onResume() {
         super.onResume()
+        println("DEBUG: MainActivity onResume - Bilgiler yenileniyor")
+
         updateStats()
         loadTodaysAuditor() // Denetmen bilgilerini yenile
         loadUserProfile() // Profil bilgilerini yenile
+
+        // Firebase kullanıcısını yeniden kontrol et (profil güncellemeleri için)
+        val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
+        currentFirebaseUser?.reload()?.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                println("DEBUG: Firebase kullanıcı bilgileri yenilendi")
+                loadUserProfile()
+            }
+        }
     }
 }

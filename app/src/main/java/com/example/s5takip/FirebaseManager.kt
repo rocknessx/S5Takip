@@ -30,7 +30,6 @@ class FirebaseManager private constructor() {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance("s5takip")
 
-
     /**
      * Google Sign-In Client oluştur
      */
@@ -406,32 +405,73 @@ class FirebaseManager private constructor() {
     }
 
     /**
-     * Grup üyesinin bilgilerini güncelle
+     * ✅ YENİ: Grup üyesi bilgilerini güncelle
      */
-    suspend fun updateGroupMember(updatedMember: GroupMember): Result<Unit> {
+    suspend fun updateGroupMember(member: GroupMember): Result<Unit> {
         return try {
-            println("DEBUG: Grup üyesi güncelleniyor - ID: ${updatedMember.id}, Rol: ${updatedMember.role}")
+            println("DEBUG: updateGroupMember başladı - Üye: ${member.userName}, Yeni rol: ${member.role}")
 
             val memberData = hashMapOf<String, Any>(
-                "id" to updatedMember.id,
-                "groupId" to updatedMember.groupId,
-                "userId" to updatedMember.userId,
-                "userEmail" to updatedMember.userEmail,
-                "userName" to updatedMember.userName,
-                "userAvatar" to updatedMember.userAvatar,
-                "role" to updatedMember.role,
-                "joinedAt" to updatedMember.joinedAt
+                "id" to member.id,
+                "groupId" to member.groupId,
+                "userId" to member.userId,
+                "userEmail" to member.userEmail,
+                "userName" to member.userName,
+                "userAvatar" to member.userAvatar,
+                "role" to member.role,
+                "joinedAt" to member.joinedAt
             )
 
             firestore.collection("group_members")
-                .document(updatedMember.id)
+                .document(member.id)
                 .set(memberData)
                 .await()
 
             println("DEBUG: ✅ Grup üyesi başarıyla güncellendi")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("DEBUG: ❌ Grup üyesi güncelleme hatası: ${e.message}")
+            println("DEBUG: ❌ updateGroupMember hatası: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * ✅ YENİ: Kullanıcı profil bilgilerini güncelle (grup üyeliklerinde de güncellenir)
+     */
+    suspend fun updateUserProfile(userId: String, newDisplayName: String): Result<Unit> {
+        return try {
+            println("DEBUG: updateUserProfile başladı - User: $userId, Yeni ad: $newDisplayName")
+
+            // 1. Kullanıcının kendi profil bilgilerini güncelle
+            val userRef = firestore.collection("users").document(userId)
+            userRef.update("displayName", newDisplayName).await()
+
+            // 2. Kullanıcının tüm grup üyeliklerinde adını güncelle
+            val memberships = firestore.collection("group_members")
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+
+            // Her grup üyeliğini güncelle
+            for (document in memberships.documents) {
+                document.reference.update("userName", newDisplayName).await()
+            }
+
+            // 3. Chat mesajlarında da güncelle (opsiyonel)
+            val chatMessages = firestore.collection("chat_messages")
+                .whereEqualTo("senderId", userId)
+                .get()
+                .await()
+
+            for (document in chatMessages.documents) {
+                document.reference.update("senderName", newDisplayName).await()
+            }
+
+            println("DEBUG: ✅ Kullanıcı profili ve grup üyelikleri güncellendi")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            println("DEBUG: ❌ updateUserProfile hatası: ${e.message}")
             e.printStackTrace()
             Result.failure(e)
         }
@@ -485,24 +525,6 @@ class FirebaseManager private constructor() {
             Result.success(weeklyAuditors)
         } catch (e: Exception) {
             println("DEBUG: Haftalık denetmenler getirme hatası: ${e.message}")
-            e.printStackTrace()
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Haftalık denetmen ataması sil
-     */
-    suspend fun deleteWeeklyAuditor(auditorId: String): Result<Unit> {
-        return try {
-            firestore.collection("weekly_auditors")
-                .document(auditorId)
-                .delete()
-                .await()
-
-            Result.success(Unit)
-        } catch (e: Exception) {
-            println("DEBUG: Haftalık denetmen silme hatası: ${e.message}")
             e.printStackTrace()
             Result.failure(e)
         }

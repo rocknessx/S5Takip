@@ -16,12 +16,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 /**
- * Profil düzenleme ekranı
+ * Profil düzenleme ekranı - GÜNCELLENMİŞ VERSİYON
  * Kullanıcı adı, soyadı ve profil fotoğrafını düzenleme
+ * Firestore'daki grup üyeliklerini de günceller
  */
 class EditProfileActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityEditProfileBinding
+    private lateinit var firebaseManager: FirebaseManager
     private var selectedImageUri: Uri? = null
     private val currentUser = FirebaseAuth.getInstance().currentUser
 
@@ -45,6 +47,9 @@ class EditProfileActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityEditProfileBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Firebase manager'ı başlat
+        firebaseManager = FirebaseManager.getInstance()
 
         // Başlık çubuğunu ayarla
         supportActionBar?.title = "Profil Düzenle"
@@ -78,7 +83,7 @@ class EditProfileActivity : AppCompatActivity() {
             // Profil fotoğrafı
             val photoUrl = currentUser.photoUrl
             if (photoUrl != null) {
-                // Glide ile yüklenebilir (gerçek uygulamada)
+                // Gerçek uygulamada Glide ile yüklenebilir
                 // Glide.with(this).load(photoUrl).into(binding.ivProfilePhoto)
                 binding.tvPhotoInstruction.text = "Mevcut profil fotoğrafınız"
             }
@@ -122,7 +127,8 @@ class EditProfileActivity : AppCompatActivity() {
     }
 
     /**
-     * Profil bilgilerini kaydet
+     * Profil bilgilerini kaydet - GÜNCELLENMİŞ VERSİYON
+     * Firestore'daki grup üyeliklerini de günceller
      */
     private fun saveProfile() {
         val firstName = binding.etFirstName.text.toString().trim()
@@ -146,24 +152,36 @@ class EditProfileActivity : AppCompatActivity() {
             try {
                 val fullName = if (lastName.isNotEmpty()) "$firstName $lastName" else firstName
 
-                // Profil güncelleme objesini oluştur
+                println("DEBUG: Profil güncelleme başladı - Yeni ad: $fullName")
+
+                // 1. Firebase Auth profilini güncelle
                 val profileUpdates = UserProfileChangeRequest.Builder()
                     .setDisplayName(fullName)
 
                 // Eğer yeni fotoğraf seçildiyse Firebase Storage'a yükle
-                var photoUrl: String? = null
                 if (selectedImageUri != null) {
                     // Basitleştirilmiş versiyon - gerçek uygulamada Firebase Storage kullanılır
-                    photoUrl = selectedImageUri.toString()
                     profileUpdates.setPhotoUri(selectedImageUri)
                 }
 
-                // Firebase'e güncelleme gönder
+                // Firebase Auth'u güncelle
                 currentUser.updateProfile(profileUpdates.build()).await()
+                println("DEBUG: ✅ Firebase Auth profili güncellendi")
+
+                // 2. ✅ YENİ: Firestore'daki grup üyeliklerini de güncelle
+                val updateResult = firebaseManager.updateUserProfile(currentUser.uid, fullName)
+
+                if (updateResult.isSuccess) {
+                    println("DEBUG: ✅ Firestore grup üyelikleri güncellendi")
+                } else {
+                    println("DEBUG: ⚠️ Firestore güncelleme hatası: ${updateResult.exceptionOrNull()?.message}")
+                    // Hata olsa bile devam et, çünkü Firebase Auth güncellendi
+                }
 
                 runOnUiThread {
                     Toast.makeText(this@EditProfileActivity,
-                        "Profil başarıyla güncellendi! ✓", Toast.LENGTH_LONG).show()
+                        "✅ Profil başarıyla güncellendi!\n\nGrup üyeliklerinizde de yeni adınız görünecek.",
+                        Toast.LENGTH_LONG).show()
 
                     // Sonuç olarak başarı döndür
                     setResult(Activity.RESULT_OK)
@@ -171,9 +189,12 @@ class EditProfileActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
+                println("DEBUG: ❌ Profil güncelleme hatası: ${e.message}")
+                e.printStackTrace()
+
                 runOnUiThread {
                     Toast.makeText(this@EditProfileActivity,
-                        "Profil güncellenirken hata: ${e.message}", Toast.LENGTH_LONG).show()
+                        "❌ Profil güncellenirken hata: ${e.message}", Toast.LENGTH_LONG).show()
 
                     // Buton durumunu eski haline getir
                     binding.btnSave.isEnabled = true

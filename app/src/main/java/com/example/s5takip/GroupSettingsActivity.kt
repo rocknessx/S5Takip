@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import java.util.*
 
 /**
- * Grup ayarları ekranı - Üye görünümü ve grup sahibi için yönetim
+ * Grup ayarları ekranı - HATASIZ VERSİYON
  */
 class GroupSettingsActivity : AppCompatActivity() {
 
@@ -62,12 +62,41 @@ class GroupSettingsActivity : AppCompatActivity() {
      */
     private fun setupUI() {
         binding.tvGroupNameTitle.text = groupName
-
-        // Başlangıçta düzenleme butonlarını gizle
         binding.btnShareInviteCode.visibility = View.GONE
     }
 
+    /**
+     * RecyclerView'ları ayarla - DÜZELTİLMİŞ VERSİYON
+     */
+    private fun setupRecyclerViews() {
+        // Grup üyeleri adapter
+        membersAdapter = GroupMembersAdapter(groupMembers) { member ->
+            if (isGroupOwner) {
+                showMemberRoleDialog(member)
+            } else {
+                showMemberProfile(member)
+            }
+        }
+        binding.rvGroupMembers.layoutManager = LinearLayoutManager(this)
+        binding.rvGroupMembers.adapter = membersAdapter
 
+        // Haftalık program adapter - 7 GÜN İLE
+        weeklyScheduleAdapter = WeeklyScheduleAdapter(weeklyAuditors, groupMembers) { weekDay ->
+            val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+            val currentUserMember = groupMembers.find { it.userId == currentUserId }
+            val canManage = currentUserMember?.role == GroupRoles.OWNER || currentUserMember?.role == GroupRoles.ADMIN
+
+            if (canManage) {
+                showAuditorSelectionDialog(weekDay)
+            } else {
+                showReadOnlyScheduleInfo(weekDay)
+            }
+        }
+        binding.rvWeeklySchedule.layoutManager = LinearLayoutManager(this)
+        binding.rvWeeklySchedule.adapter = weeklyScheduleAdapter
+
+        println("DEBUG: RecyclerView'lar ayarlandı - WeeklyScheduleAdapter item count: ${weeklyScheduleAdapter.itemCount}")
+    }
 
     /**
      * Click listener'ları ayarla
@@ -78,7 +107,7 @@ class GroupSettingsActivity : AppCompatActivity() {
             loadGroupData()
         }
 
-        // Davet kodu paylaş (sadece grup sahibi için)
+        // Davet kodu paylaş
         binding.btnShareInviteCode.setOnClickListener {
             if (isGroupOwner) {
                 shareInviteCode()
@@ -86,40 +115,8 @@ class GroupSettingsActivity : AppCompatActivity() {
         }
     }
 
-
-
-    // GroupSettingsActivity.kt'deki setupRecyclerViews metodunu güncelleyin:
-
     /**
-     * RecyclerView'ları ayarla
-     */
-    private fun setupRecyclerViews() {
-        // Grup üyeleri adapter - ROL DEĞİŞTİRME ÖZELLİĞİ İLE
-        membersAdapter = GroupMembersAdapter(groupMembers) { member ->
-            // ✅ Grup sahibiyse rol değiştirme dialog'u göster
-            if (isGroupOwner) {
-                showMemberRoleDialog(member)
-            } else {
-                showMemberProfile(member)
-            }
-        }
-        binding.rvGroupMembers.layoutManager = LinearLayoutManager(this)
-        binding.rvGroupMembers.adapter = membersAdapter
-
-        // Haftalık program adapter
-        weeklyScheduleAdapter = WeeklyScheduleAdapter(weeklyAuditors, groupMembers) { weekDay ->
-            if (isGroupOwner) {
-                showAuditorSelectionDialog(weekDay)
-            } else {
-                showReadOnlyScheduleInfo(weekDay)
-            }
-        }
-        binding.rvWeeklySchedule.layoutManager = LinearLayoutManager(this)
-        binding.rvWeeklySchedule.adapter = weeklyScheduleAdapter
-    }
-
-    /**
-     * Üye rolünü değiştirme dialog'u - GELİŞTİRİLMİŞ VERSİYON
+     * Üye rolünü değiştirme dialog'u
      */
     private fun showMemberRoleDialog(member: GroupMember) {
         if (!isGroupOwner) {
@@ -127,7 +124,6 @@ class GroupSettingsActivity : AppCompatActivity() {
             return
         }
 
-        // Grup sahibinin rolü değiştirilemez
         if (member.role == GroupRoles.OWNER) {
             Toast.makeText(this, "Grup sahibinin rolü değiştirilemez", Toast.LENGTH_SHORT).show()
             return
@@ -153,7 +149,6 @@ class GroupSettingsActivity : AppCompatActivity() {
             .setSingleChoiceItems(roles, currentIndex) { dialog, which ->
                 val newRole = roleValues[which]
 
-                // Onay dialog'u göster
                 AlertDialog.Builder(this@GroupSettingsActivity)
                     .setTitle("Rol Değişikliğini Onayla")
                     .setMessage("${member.userName} kullanıcısının rolü '${getRoleDisplayName(newRole)}' olarak değiştirilecek.\n\nOnaylıyor musunuz?")
@@ -183,7 +178,7 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Üye rolünü güncelle - GELİŞTİRİLMİŞ VERSİYON
+     * Üye rolünü güncelle
      */
     private fun updateMemberRole(member: GroupMember, newRole: String) {
         if (member.role == GroupRoles.OWNER) {
@@ -191,7 +186,6 @@ class GroupSettingsActivity : AppCompatActivity() {
             return
         }
 
-        // Loading göster
         val loadingDialog = AlertDialog.Builder(this)
             .setTitle("Rol Güncelleniyor")
             .setMessage("${member.userName} kullanıcısının rolü güncelleniyor...")
@@ -202,15 +196,12 @@ class GroupSettingsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val updatedMember = member.copy(role = newRole)
-
-                // Firebase'de üye bilgisini güncelle
                 val result = firebaseManager.updateGroupMember(updatedMember)
 
                 runOnUiThread {
                     loadingDialog.dismiss()
 
                     if (result.isSuccess) {
-                        // Listeyi güncelle
                         val index = groupMembers.indexOf(member)
                         if (index != -1) {
                             groupMembers[index] = updatedMember
@@ -219,7 +210,6 @@ class GroupSettingsActivity : AppCompatActivity() {
 
                         val roleText = getRoleDisplayName(newRole)
 
-                        // Başarı mesajı
                         AlertDialog.Builder(this@GroupSettingsActivity)
                             .setTitle("✅ Rol Güncellendi")
                             .setMessage("${member.userName} artık $roleText rolünde!\n\nYeni yetkiler hemen aktif olacak.")
@@ -228,7 +218,6 @@ class GroupSettingsActivity : AppCompatActivity() {
 
                         println("DEBUG: ✅ Rol güncellendi: ${member.userName} -> $newRole")
                     } else {
-                        // Hata mesajı
                         AlertDialog.Builder(this@GroupSettingsActivity)
                             .setTitle("❌ Rol Güncellenemedi")
                             .setMessage("Rol güncellenirken hata oluştu:\n\n${result.exceptionOrNull()?.message}")
@@ -255,11 +244,8 @@ class GroupSettingsActivity : AppCompatActivity() {
         }
     }
 
-
-
-
     /**
-     * Grup sahipliği kontrolü yap - İyileştirilmiş
+     * Grup sahipliği kontrolü yap
      */
     private fun checkGroupOwnership() {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
@@ -285,7 +271,7 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Yetkilere göre UI'ı güncelle - İyileştirilmiş
+     * Yetkilere göre UI'ı güncelle
      */
     private fun updateUIBasedOnPermissions(isAdmin: Boolean = false) {
         val canManage = isGroupOwner || isAdmin
@@ -301,7 +287,6 @@ class GroupSettingsActivity : AppCompatActivity() {
             binding.tvScheduleDescription.text = "Haftalık denetmen programını görüntülüyorsunuz. Değişiklik yapmak için grup sahibi veya yönetici ile iletişime geçin."
         }
 
-        // Schedule adapter'ına yetki bilgisini geç
         weeklyScheduleAdapter = WeeklyScheduleAdapter(weeklyAuditors, groupMembers) { weekDay ->
             if (canManage) {
                 showAuditorSelectionDialog(weekDay)
@@ -329,7 +314,7 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Denetmen seçim dialog'u - Aynı kişiyi farklı günlere atayabilir
+     * Denetmen seçim dialog'u
      */
     private fun showAuditorSelectionDialog(weekDay: Int) {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
@@ -343,7 +328,6 @@ class GroupSettingsActivity : AppCompatActivity() {
 
         val dayName = getDayName(weekDay)
 
-        // Sadece denetmen yetkisi olan üyeleri göster
         val eligibleMembers = groupMembers.filter {
             it.role == GroupRoles.AUDITOR || it.role == GroupRoles.ADMIN || it.role == GroupRoles.OWNER
         }
@@ -363,7 +347,6 @@ class GroupSettingsActivity : AppCompatActivity() {
             "${member.userName}$roleText"
         }.toTypedArray()
 
-        // Mevcut denetmeni bul
         val currentAuditor = weeklyAuditors.find { it.weekDay == weekDay }
         val currentIndex = if (currentAuditor != null) {
             eligibleMembers.indexOfFirst { it.userId == currentAuditor.auditorId }
@@ -430,7 +413,6 @@ class GroupSettingsActivity : AppCompatActivity() {
     private fun assignAuditorToDay(weekDay: Int, member: GroupMember) {
         lifecycleScope.launch {
             try {
-                // Mevcut atamaları kontrol et
                 val existingAuditor = weeklyAuditors.find { it.weekDay == weekDay }
 
                 val weeklyAuditor = WeeklyAuditor(
@@ -447,7 +429,6 @@ class GroupSettingsActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     if (result.isSuccess) {
-                        // Listeyi güncelle
                         if (existingAuditor != null) {
                             val index = weeklyAuditors.indexOf(existingAuditor)
                             weeklyAuditors[index] = weeklyAuditor
@@ -493,7 +474,6 @@ class GroupSettingsActivity : AppCompatActivity() {
      * Davet kodunu paylaş
      */
     private fun shareInviteCode() {
-        // Grup bilgilerini al ve davet kodunu paylaş
         Toast.makeText(this, "Davet kodu paylaşma özelliği eklenecek", Toast.LENGTH_SHORT).show()
     }
 
@@ -514,17 +494,15 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
-    * Grup verilerini yükle - GELİŞTİRİLMİŞ VERSİYON
-    */
+     * Grup verilerini yükle
+     */
     private fun loadGroupData() {
         binding.progressLoading.visibility = View.VISIBLE
 
         lifecycleScope.launch {
             try {
-                // Önce grup bilgilerini al ve yetki kontrolü yap
                 checkGroupOwnership()
 
-                // Grup üyelerini yükle - GÜNCELLENMİŞ VERSİYON
                 val membersResult = firebaseManager.getGroupMembers(groupId)
                 if (membersResult.isSuccess) {
                     val members = membersResult.getOrNull() ?: emptyList()
@@ -535,7 +513,6 @@ class GroupSettingsActivity : AppCompatActivity() {
                         membersAdapter.notifyDataSetChanged()
                         binding.tvMembersCount.text = "${groupMembers.size} üye"
 
-                        // Debug: Üye listesini logla
                         println("DEBUG: Grup üyeleri güncellendi:")
                         groupMembers.forEach { member ->
                             println("DEBUG: - ${member.userName} (${member.role})")
@@ -543,7 +520,6 @@ class GroupSettingsActivity : AppCompatActivity() {
                     }
                 }
 
-                // Haftalık denetmenleri yükle
                 val auditorsResult = firebaseManager.getWeeklyAuditors(groupId)
                 if (auditorsResult.isSuccess) {
                     val auditors = auditorsResult.getOrNull() ?: emptyList()
@@ -553,6 +529,9 @@ class GroupSettingsActivity : AppCompatActivity() {
                     runOnUiThread {
                         weeklyScheduleAdapter.notifyDataSetChanged()
                         updateWeeklyScheduleTitle()
+
+                        // ✅ DEBUG: Adapter item count'unu kontrol et
+                        println("DEBUG: WeeklyScheduleAdapter güncellendi - Item count: ${weeklyScheduleAdapter.itemCount}")
                     }
                 }
 
@@ -570,17 +549,11 @@ class GroupSettingsActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Aktivite kapanırken ana sayfaya bilgi gönder
-     */
     override fun onBackPressed() {
-        // Değişiklik yapıldığını ana sayfaya bildir
         setResult(RESULT_OK)
         super.onBackPressed()
     }
-    /**
-     * Geri buton basıldığında
-     */
+
     override fun onSupportNavigateUp(): Boolean {
         setResult(RESULT_OK)
         onBackPressed()
@@ -589,7 +562,7 @@ class GroupSettingsActivity : AppCompatActivity() {
 }
 
 /**
- * Grup üyeleri için adapter - Sadece görüntüleme
+ * Grup üyeleri için adapter
  */
 class GroupMembersAdapter(
     private val members: List<GroupMember>,
@@ -620,13 +593,11 @@ class GroupMembersAdapter(
         val member = members[position]
         val context = holder.itemView.context
 
-        // İç layout oluştur
         val innerLayout = android.widget.LinearLayout(context)
         innerLayout.orientation = android.widget.LinearLayout.HORIZONTAL
         innerLayout.setPadding(16, 12, 16, 12)
         innerLayout.gravity = android.view.Gravity.CENTER_VERTICAL
 
-        // Profil avatarı
         val avatarFrame = android.widget.FrameLayout(context)
         avatarFrame.layoutParams = android.widget.LinearLayout.LayoutParams(48, 48)
 
@@ -641,7 +612,6 @@ class GroupMembersAdapter(
 
         avatarFrame.addView(profileIcon)
 
-        // Kullanıcı bilgileri
         val userInfo = android.widget.LinearLayout(context)
         userInfo.orientation = android.widget.LinearLayout.VERTICAL
         userInfo.setPadding(16, 0, 0, 0)
@@ -675,7 +645,6 @@ class GroupMembersAdapter(
         innerLayout.addView(avatarFrame)
         innerLayout.addView(userInfo)
 
-        // CardView'ı temizle ve yeni içeriği ekle
         holder.cardView.removeAllViews()
         holder.cardView.addView(innerLayout)
 
@@ -687,10 +656,8 @@ class GroupMembersAdapter(
     override fun getItemCount(): Int = members.size
 }
 
-// GroupSettingsActivity.kt'deki WeeklyScheduleAdapter'ı düzeltelim:
-
 /**
- * Haftalık program için adapter - TÜM GÜNLER DAHİL
+ * Haftalık program için adapter - 7 GÜN DAHİL ✅
  */
 class WeeklyScheduleAdapter(
     private val weeklyAuditors: List<WeeklyAuditor>,
@@ -698,15 +665,15 @@ class WeeklyScheduleAdapter(
     private val onDayClick: (Int) -> Unit
 ) : androidx.recyclerview.widget.RecyclerView.Adapter<WeeklyScheduleAdapter.DayViewHolder>() {
 
-    // TÜM GÜNLER - 7 gün
+    // ✅ TÜM GÜNLER - 7 gün
     private val daysOfWeek = listOf(
         1 to "Pazartesi",
         2 to "Salı",
         3 to "Çarşamba",
         4 to "Perşembe",
         5 to "Cuma",
-        6 to "Cumartesi",    // ✅ Eklendi
-        7 to "Pazar"         // ✅ Eklendi
+        6 to "Cumartesi",    // ✅ EKLENDI
+        7 to "Pazar"         // ✅ EKLENDI
     )
 
     class DayViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
@@ -733,7 +700,8 @@ class WeeklyScheduleAdapter(
         val (dayNumber, dayName) = daysOfWeek[position]
         val context = holder.itemView.context
 
-        // Bu güne atanmış denetmeni bul
+        println("DEBUG: Binding gün $position - $dayName (Gün numarası: $dayNumber)")
+
         val assignedAuditor = weeklyAuditors.find { it.weekDay == dayNumber }
         val auditorName = if (assignedAuditor != null) {
             members.find { it.userId == assignedAuditor.auditorId }?.userName ?: "Bilinmeyen"
@@ -741,7 +709,6 @@ class WeeklyScheduleAdapter(
             "Atanmamış"
         }
 
-        // Bugün mü kontrol et - DÜZELTİLMİŞ VERSİYON
         val calendar = Calendar.getInstance()
         val todayNumber = when (calendar.get(Calendar.DAY_OF_WEEK)) {
             Calendar.MONDAY -> 1
@@ -749,24 +716,21 @@ class WeeklyScheduleAdapter(
             Calendar.WEDNESDAY -> 3
             Calendar.THURSDAY -> 4
             Calendar.FRIDAY -> 5
-            Calendar.SATURDAY -> 6      // ✅ Cumartesi düzeltildi
-            Calendar.SUNDAY -> 7        // ✅ Pazar düzeltildi
+            Calendar.SATURDAY -> 6      // ✅ Cumartesi
+            Calendar.SUNDAY -> 7        // ✅ Pazar
             else -> 0
         }
 
-        // İç layout oluştur
         val innerLayout = android.widget.LinearLayout(context)
         innerLayout.orientation = android.widget.LinearLayout.HORIZONTAL
         innerLayout.setPadding(16, 12, 16, 12)
         innerLayout.gravity = android.view.Gravity.CENTER_VERTICAL
 
-        // Bugün ise özel stil
         val isToday = dayNumber == todayNumber
         if (isToday) {
             innerLayout.setBackgroundColor(androidx.core.content.ContextCompat.getColor(context, R.color.primary))
         }
 
-        // Gün adı
         val dayText = android.widget.TextView(context)
         dayText.text = if (isToday) "🔴 $dayName (BUGÜN)" else dayName
         dayText.textSize = 16f
@@ -775,7 +739,6 @@ class WeeklyScheduleAdapter(
         dayText.setTextColor(androidx.core.content.ContextCompat.getColor(context, dayColor))
         dayText.layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
 
-        // Denetmen adı
         val auditorText = android.widget.TextView(context)
         auditorText.text = auditorName
         auditorText.textSize = 14f
@@ -788,7 +751,6 @@ class WeeklyScheduleAdapter(
         }
         auditorText.setTextColor(androidx.core.content.ContextCompat.getColor(context, auditorColor))
 
-        // Ok işareti
         val arrowText = android.widget.TextView(context)
         arrowText.text = "›"
         arrowText.textSize = 20f
@@ -799,7 +761,6 @@ class WeeklyScheduleAdapter(
         innerLayout.addView(auditorText)
         innerLayout.addView(arrowText)
 
-        // CardView'ı temizle ve yeni içeriği ekle
         holder.cardView.removeAllViews()
         holder.cardView.addView(innerLayout)
 
@@ -808,7 +769,10 @@ class WeeklyScheduleAdapter(
         }
     }
 
-    override fun getItemCount(): Int = daysOfWeek.size // ✅ Artık 7 döner (tüm günler)
+    override fun getItemCount(): Int {
+        println("DEBUG: WeeklyScheduleAdapter getItemCount() çağrıldı - Dönen değer: ${daysOfWeek.size}")
+        return daysOfWeek.size // ✅ Artık 7 döner (tüm günler)
+    }
 
     companion object {
         fun getDayName(weekDay: Int): String {
@@ -818,8 +782,8 @@ class WeeklyScheduleAdapter(
                 3 -> "Çarşamba"
                 4 -> "Perşembe"
                 5 -> "Cuma"
-                6 -> "Cumartesi"    // ✅ Eklendi
-                7 -> "Pazar"        // ✅ Eklendi
+                6 -> "Cumartesi"    // ✅ EKLENDI
+                7 -> "Pazar"        // ✅ EKLENDI
                 else -> "Bilinmeyen"
             }
         }
