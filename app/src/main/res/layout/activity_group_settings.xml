@@ -45,7 +45,6 @@
                     android:textStyle="bold"
                     android:textColor="@color/black"
                     android:layout_marginBottom="8dp" />
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -77,6 +76,7 @@
                         style="@style/Widget.MaterialComponents.Button.TextButton" />
 
                 </LinearLayout>
+
 
             </LinearLayout>
 
@@ -115,6 +115,17 @@
             </LinearLayout>
 
         </androidx.cardview.widget.CardView>
+        <!-- Grup Silme Butonu (Sadece Grup Sahibi İçin) -->
+        <Button
+            android:id="@+id/btn_delete_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="🗑️ Grubu Sil"
+            android:textSize="14sp"
+            android:backgroundTint="#F44336"
+            android:textColor="@color/white"
+            android:visibility="gone" />
 
         <!-- Haftalık Denetmen Programı -->
         <androidx.cardview.widget.CardView

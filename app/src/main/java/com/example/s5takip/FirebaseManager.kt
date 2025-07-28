@@ -250,6 +250,62 @@ class FirebaseManager private constructor() {
             Result.failure(e)
         }
     }
+    /**
+     * Grubu ve ilişkili tüm verilerini sil
+     */
+    suspend fun deleteGroup(groupId: String): Result<Unit> {
+        return try {
+            println("DEBUG: deleteGroup başladı - Grup ID: $groupId")
+
+            // Firestore işlemleri için bir batch oluştur
+            val batch = firestore.batch()
+
+            // 1. Grup dokümanını sil
+            val groupRef = firestore.collection("groups").document(groupId)
+            batch.delete(groupRef)
+            println("DEBUG: Grup dokümanı silme işlemi batch'e eklendi")
+
+            // 2. Grup üyelerini sil
+            val membersSnapshot = firestore.collection("group_members")
+                .whereEqualTo("groupId", groupId)
+                .get()
+                .await()
+            for (document in membersSnapshot.documents) {
+                batch.delete(document.reference)
+            }
+            println("DEBUG: ${membersSnapshot.size()} grup üyesi silme işlemi batch'e eklendi")
+
+            // 3. Haftalık denetmenleri sil
+            val auditorsSnapshot = firestore.collection("weekly_auditors")
+                .whereEqualTo("groupId", groupId)
+                .get()
+                .await()
+            for (document in auditorsSnapshot.documents) {
+                batch.delete(document.reference)
+            }
+            println("DEBUG: ${auditorsSnapshot.size()} haftalık denetmen silme işlemi batch'e eklendi")
+
+            // 4. Sohbet mesajlarını sil
+            val messagesSnapshot = firestore.collection("chat_messages")
+                .whereEqualTo("groupId", groupId)
+                .get()
+                .await()
+            for (document in messagesSnapshot.documents) {
+                batch.delete(document.reference)
+            }
+            println("DEBUG: ${messagesSnapshot.size()} sohbet mesajı silme işlemi batch'e eklendi")
+
+            // Batch işlemlerini gerçekleştir
+            batch.commit().await()
+            println("DEBUG: Tüm silme işlemleri başarıyla tamamlandı")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            println("DEBUG: deleteGroup hatası: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
 
     /**
      * Gruba katıl
