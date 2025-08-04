@@ -77,7 +77,6 @@
 
                 </LinearLayout>
 
-
             </LinearLayout>
 
         </androidx.cardview.widget.CardView>
@@ -115,6 +114,7 @@
             </LinearLayout>
 
         </androidx.cardview.widget.CardView>
+
         <!-- Grup Silme Butonu (Sadece Grup Sahibi İçin) -->
         <Button
             android:id="@+id/btn_delete_group"
@@ -127,7 +127,7 @@
             android:textColor="@color/white"
             android:visibility="gone" />
 
-        <!-- Haftalık Denetmen Programı -->
+        <!-- ✅ Haftalık Denetmen Programı - 7 GÜN ZORLA GÖSTERİM -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -154,17 +154,30 @@
                     android:id="@+id/tv_weekly_schedule_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📅 Haftalık Denetmen Programı"
+                    android:text="📅 Haftalık Denetmen Programı (7 Gün)"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="@color/primary"
                     android:layout_marginBottom="8dp" />
 
+                <!-- ✅ RecyclerView boyutu sabitlendi - 7 gün için yeterli yükseklik -->
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rv_weekly_schedule"
                     android:layout_width="match_parent"
+                    android:layout_height="450dp"
+                    android:nestedScrollingEnabled="false"
+                    android:clipToPadding="false"
+                    android:overScrollMode="never" />
+
+                <!-- ✅ Debug bilgi - 7 gün zorunlu -->
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:nestedScrollingEnabled="false" />
+                    android:text="ℹ️ Tüm günler (7 gün) her zaman görüntülenir"
+                    android:textSize="12sp"
+                    android:textColor="@color/gray_dark"
+                    android:layout_marginTop="8dp"
+                    android:alpha="0.7" />
 
             </LinearLayout>
 
