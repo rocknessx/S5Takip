@@ -16,12 +16,201 @@ class DatabaseHelper(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "s5_takip.db"
-        private const val DATABASE_VERSION = 2 // Versiyon artırıldı
+        private const val DATABASE_VERSION = 3 // Versiyon artırıldı
 
         // Tablo isimleri
         private const val TABLE_USERS = "users"
         private const val TABLE_PROBLEMS = "problems"
         private const val TABLE_SOLUTIONS = "solutions"
+    }
+
+    /**
+     * DatabaseHelper - Grup Problemleri Ayrımı Düzeltmesi
+     * ✅ Her grubun kendi problemleri ayrı gösterilir
+     */
+
+// DatabaseHelper.kt içindeki bu fonksiyonları değiştir:
+
+    /**
+     * Problem ekle - Grup ID'si ile - DÜZELTİLMİŞ VERSİYON
+     */
+    fun insertProblem(problem: Problem): Boolean {
+        return try {
+            val db = writableDatabase
+            val values = ContentValues().apply {
+                put("id", problem.id)
+                put("group_id", problem.groupId) // ✅ Grup ID'si eklendi
+                put("auditor_id", problem.auditorId)
+                put("auditor_name", problem.auditorName)
+                put("description", problem.description)
+                put("location", problem.location)
+                put("image_path", problem.imagePath)
+                put("priority", problem.priority.name)
+                put("status", problem.status.name)
+                put("created_at", problem.createdAt)
+                put("audit_date", getCurrentDateString())
+            }
+
+            val result = db.insert("problems", null, values)
+            db.close()
+
+            println("DEBUG: ✅ Problem kaydedildi - Grup ID: ${problem.groupId}")
+            result != -1L
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Belirli grup ve tarihteki problemleri getir - YENİ FONKSİYON
+     */
+    fun getProblemsForGroupAndDate(groupId: String, date: String): List<Problem> {
+        val problems = mutableListOf<Problem>()
+
+        try {
+            val db = readableDatabase
+            val cursor = db.query(
+                "problems",
+                null,
+                "group_id = ? AND audit_date = ?", // ✅ Grup ID filtresi eklendi
+                arrayOf(groupId, date),
+                null, null,
+                "created_at DESC"
+            )
+
+            while (cursor.moveToNext()) {
+                val problem = Problem(
+                    id = cursor.getString(cursor.getColumnIndexOrThrow("id")),
+                    groupId = cursor.getString(cursor.getColumnIndexOrThrow("group_id")),
+                    description = cursor.getString(cursor.getColumnIndexOrThrow("description")),
+                    location = cursor.getString(cursor.getColumnIndexOrThrow("location")),
+                    priority = ProblemPriority.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("priority"))),
+                    status = ProblemStatus.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("status"))),
+                    auditorId = cursor.getString(cursor.getColumnIndexOrThrow("auditor_id")),
+                    auditorName = cursor.getString(cursor.getColumnIndexOrThrow("auditor_name")),
+                    imagePath = cursor.getString(cursor.getColumnIndexOrThrow("image_path")),
+                    createdAt = cursor.getLong(cursor.getColumnIndexOrThrow("created_at"))
+                )
+                problems.add(problem)
+            }
+
+            cursor.close()
+            db.close()
+
+            println("DEBUG: ✅ Grup $groupId için $date tarihinde ${problems.size} problem bulundu")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            println("DEBUG: ❌ Grup problemleri yükleme hatası: ${e.message}")
+        }
+
+        return problems
+    }
+
+    /**
+     * Grup için istatistik hesapla - YENİ FONKSİYON
+     */
+    fun getStatsForGroupAndDate(groupId: String, date: String): DailyStats {
+        return try {
+            val db = readableDatabase
+
+            // Toplam problem sayısı (grup filtresli)
+            val totalCursor = db.query(
+                "problems",
+                arrayOf("COUNT(*) as total"),
+                "group_id = ? AND audit_date = ?",
+                arrayOf(groupId, date),
+                null, null, null
+            )
+
+            var totalProblems = 0
+            if (totalCursor.moveToFirst()) {
+                totalProblems = totalCursor.getInt(0)
+            }
+            totalCursor.close()
+
+            // Durumlara göre sayılar (grup filtresli)
+            val statusCursor = db.query(
+                "problems",
+                arrayOf("status", "COUNT(*) as count"),
+                "group_id = ? AND audit_date = ?",
+                arrayOf(groupId, date),
+                "status",
+                null,
+                null
+            )
+
+            var openProblems = 0
+            var inProgressProblems = 0
+            var resolvedProblems = 0
+            var verifiedProblems = 0
+
+            while (statusCursor.moveToNext()) {
+                val status = statusCursor.getString(0)
+                val count = statusCursor.getInt(1)
+
+                when (status) {
+                    "OPEN" -> openProblems = count
+                    "IN_PROGRESS" -> inProgressProblems = count
+                    "RESOLVED" -> resolvedProblems = count
+                    "VERIFIED" -> verifiedProblems = count
+                }
+            }
+
+            statusCursor.close()
+            db.close()
+
+            println("DEBUG: ✅ Grup $groupId için $date tarihinde istatistikler hesaplandı")
+
+            DailyStats(
+                date = date,
+                totalProblems = totalProblems,
+                openProblems = openProblems,
+                inProgressProblems = inProgressProblems,
+                resolvedProblems = resolvedProblems,
+                verifiedProblems = verifiedProblems
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            println("DEBUG: ❌ Grup istatistik hesaplama hatası: ${e.message}")
+
+            // Hata durumunda sıfır değerlerle oluştur
+            DailyStats(
+                date = date,
+                totalProblems = 0,
+                openProblems = 0,
+                inProgressProblems = 0,
+                resolvedProblems = 0,
+                verifiedProblems = 0
+            )
+        }
+    }
+    /**
+     * Veritabanı tablosunu güncelle - Grup ID sütunu ekle
+     */
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 3) {
+            // Problemler tablosuna group_id sütunu ekle
+            try {
+                db.execSQL("ALTER TABLE problems ADD COLUMN group_id TEXT DEFAULT ''")
+                println("DEBUG: ✅ problems tablosuna group_id sütunu eklendi")
+            } catch (e: Exception) {
+                println("DEBUG: group_id sütunu zaten var veya hata: ${e.message}")
+            }
+
+            // Çözümler tablosuna da group_id ekle
+            try {
+                db.execSQL("ALTER TABLE solutions ADD COLUMN group_id TEXT DEFAULT ''")
+                println("DEBUG: ✅ solutions tablosuna group_id sütunu eklendi")
+            } catch (e: Exception) {
+                println("DEBUG: group_id sütunu zaten var veya hata: ${e.message}")
+            }
+        }
+
+        // Eski tabloları silme yerine güncelleyici yaklaşım
+        // db.execSQL("DROP TABLE IF EXISTS problems")
+        // db.execSQL("DROP TABLE IF EXISTS solutions")
+        // onCreate(db)
     }
 
     /**
@@ -40,36 +229,38 @@ class DatabaseHelper(context: Context) :
             )
         """.trimIndent()
 
-        // Problemler tablosu - Basitleştirilmiş
+        // Problemler tablosu - Grup ID'si ile
         val createProblemsTable = """
-            CREATE TABLE $TABLE_PROBLEMS (
-                id TEXT PRIMARY KEY,
-                auditor_id TEXT NOT NULL,
-                auditor_name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                location TEXT NOT NULL,
-                image_path TEXT DEFAULT '',
-                priority TEXT DEFAULT 'MEDIUM',
-                status TEXT DEFAULT 'OPEN',
-                created_at INTEGER NOT NULL,
-                audit_date TEXT NOT NULL
-            )
-        """.trimIndent()
+        CREATE TABLE problems (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL DEFAULT '', -- ✅ Grup ID sütunu eklendi
+            auditor_id TEXT NOT NULL,
+            auditor_name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            location TEXT NOT NULL,
+            image_path TEXT DEFAULT '',
+            priority TEXT DEFAULT 'MEDIUM',
+            status TEXT DEFAULT 'OPEN',
+            created_at INTEGER NOT NULL,
+            audit_date TEXT NOT NULL
+        )
+    """.trimIndent()
 
-        // Çözümler tablosu
+        // Çözümler tablosu - Grup ID'si ile
         val createSolutionsTable = """
-            CREATE TABLE $TABLE_SOLUTIONS (
-                id TEXT PRIMARY KEY,
-                problem_id TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                user_name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                image_path TEXT DEFAULT '',
-                created_at INTEGER NOT NULL,
-                is_verified INTEGER DEFAULT 0,
-                FOREIGN KEY (problem_id) REFERENCES $TABLE_PROBLEMS (id)
-            )
-        """.trimIndent()
+        CREATE TABLE solutions (
+            id TEXT PRIMARY KEY,
+            group_id TEXT NOT NULL DEFAULT '', -- ✅ Grup ID sütunu eklendi
+            problem_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            user_name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            image_path TEXT DEFAULT '',
+            created_at INTEGER NOT NULL,
+            is_verified INTEGER DEFAULT 0,
+            FOREIGN KEY (problem_id) REFERENCES problems (id)
+        )
+    """.trimIndent()
 
         // Tabloları oluştur
         db.execSQL(createUsersTable)
@@ -77,15 +268,7 @@ class DatabaseHelper(context: Context) :
         db.execSQL(createSolutionsTable)
     }
 
-    /**
-     * Veritabanı güncellendiğinde çalışır
-     */
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_USERS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_PROBLEMS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_SOLUTIONS")
-        onCreate(db)
-    }
+
 
     // ==================== KULLANICI İŞLEMLERİ ====================
 
@@ -183,33 +366,7 @@ class DatabaseHelper(context: Context) :
 
     // ==================== PROBLEM İŞLEMLERİ ====================
 
-    /**
-     * Yeni problem ekle - Düzeltilmiş versiyon
-     */
-    fun insertProblem(problem: Problem): Boolean {
-        return try {
-            val db = writableDatabase
-            val values = ContentValues().apply {
-                put("id", problem.id)
-                put("auditor_id", problem.auditorId)
-                put("auditor_name", problem.auditorName)
-                put("description", problem.description)
-                put("location", problem.location)
-                put("image_path", problem.imagePath)
-                put("priority", problem.priority.name)
-                put("status", problem.status.name)
-                put("created_at", problem.createdAt)
-                put("audit_date", getCurrentDateString()) // Helper fonksiyon
-            }
 
-            val result = db.insert(TABLE_PROBLEMS, null, values)
-            db.close()
-            result != -1L
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
 
     /**
      * Belirli tarihteki problemleri getir - Düzeltilmiş versiyon

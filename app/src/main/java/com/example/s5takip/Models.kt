@@ -67,11 +67,11 @@ data class User(
 )
 
 /**
- * Problem modeli - Grup ID'si eklendi
+ * Problem modeli - GRUP ID'Sİ İLE GÜNCELLENMİŞ VERSİYON
  */
 data class Problem(
     val id: String = UUID.randomUUID().toString(),
-    val groupId: String = "", // Hangi gruba ait olduğu
+    val groupId: String = "", // ✅ Hangi gruba ait olduğu - ZORUNLU
     val description: String,
     val location: String,
     val priority: ProblemPriority,
@@ -80,14 +80,21 @@ data class Problem(
     val auditorName: String,
     val imagePath: String = "",
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    init {
+        // Grup ID'si boş olamaz uyarısı
+        if (groupId.isEmpty()) {
+            println("⚠️ UYARI: Problem grup ID'si boş! Bu problemin hangi gruba ait olduğu belirsiz.")
+        }
+    }
+}
 
 /**
- * Çözüm modeli - Grup ID'si eklendi
+ * Çözüm modeli - GRUP ID'Sİ İLE GÜNCELLENMİŞ VERSİYON
  */
 data class Solution(
     val id: String = UUID.randomUUID().toString(),
-    val groupId: String = "", // Hangi gruba ait olduğu
+    val groupId: String = "", // ✅ Hangi gruba ait olduğu - ZORUNLU
     val problemId: String,
     val userId: String,
     val userName: String,
@@ -95,13 +102,21 @@ data class Solution(
     val imagePath: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val isVerified: Boolean = false
-)
+) {
+    init {
+        // Grup ID'si boş olamaz uyarısı
+        if (groupId.isEmpty()) {
+            println("⚠️ UYARI: Çözüm grup ID'si boş! Bu çözümün hangi gruba ait olduğu belirsiz.")
+        }
+    }
+}
 
 /**
- * Günlük istatistik modeli
+ * Günlük istatistik modeli - Grup spesifik
  */
 data class DailyStats(
     val date: String,
+    val groupId: String = "", // ✅ Hangi grubun istatistikleri
     val totalProblems: Int = 0,
     val openProblems: Int = 0,
     val inProgressProblems: Int = 0,

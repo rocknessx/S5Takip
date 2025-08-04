@@ -683,7 +683,6 @@ class GroupSettingsActivity : AppCompatActivity() {
         }
     }
 
-
     /**
      * Debug: Grup üyelerini logla
      */
@@ -715,7 +714,7 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Grup verilerini yükle - DÜZELTILMIŞ: Haftalık programa odaklan
+     * Grup verilerini yükle - DÜZELTİLMİŞ: Haftalık program için 7 gün sabit ve zorla gösterim
      */
     private fun loadGroupData() {
         binding.progressLoading.visibility = View.VISIBLE
@@ -755,19 +754,14 @@ class GroupSettingsActivity : AppCompatActivity() {
                     weeklyAuditors.addAll(auditors)
 
                     runOnUiThread {
-                        // ✅ HAFTALIK PROGRAM ADAPTER'I YENİLE - TÜM GÜNLER HEP GÖZÜKMELİ
+                        // ✅ Haftalık program adapter'ını yenile - 7 gün sabit gösterilir
                         weeklyScheduleAdapter.notifyDataSetChanged()
                         println("DEBUG: ✅ Haftalık program güncellendi: ${auditors.size} atama")
                         println("DEBUG: ✅ Adapter'da ${weeklyScheduleAdapter.itemCount} gün gösteriliyor")
-
-                        // Debug: Hangi günlerde denetmen var?
-                        auditors.forEach { auditor ->
-                            println("DEBUG: ${getDayName(auditor.weekDay)}: ${auditor.auditorName}")
-                        }
                     }
                 } else {
                     println("DEBUG: ❌ Haftalık denetmenler yüklenemedi: ${auditorsResult.exceptionOrNull()?.message}")
-                    // Hata olsa bile tüm günler gözükmeli
+                    // Hata olsa bile 7 gün sabit gösterilir
                     runOnUiThread {
                         weeklyScheduleAdapter.notifyDataSetChanged()
                     }
@@ -786,7 +780,7 @@ class GroupSettingsActivity : AppCompatActivity() {
                     Toast.makeText(this@GroupSettingsActivity,
                         "Veri yüklenirken hata: ${e.message}", Toast.LENGTH_SHORT).show()
 
-                    // ✅ Hata olsa bile haftalık programı göster
+                    // ✅ Hata olsa bile 7 gün sabit gösterilir
                     weeklyScheduleAdapter.notifyDataSetChanged()
                 }
             }
@@ -900,7 +894,7 @@ class GroupMembersAdapter(
 }
 
 /**
- * Haftalık program için adapter - 7 GÜN (TÜM HAFTA)
+ * Haftalık program için adapter - 7 GÜN (HER ZAMAN TÜM GÜNLER GÖZÜKMELİ - ZORLA)
  */
 class WeeklyScheduleAdapter(
     private val weeklyAuditors: List<WeeklyAuditor>,
@@ -908,13 +902,14 @@ class WeeklyScheduleAdapter(
     private val onDayClick: (Int) -> Unit
 ) : androidx.recyclerview.widget.RecyclerView.Adapter<WeeklyScheduleAdapter.DayViewHolder>() {
 
+    // ✅ 7 günün hepsi HER ZAMAN gözükmeli - Sabit liste
     private val daysOfWeek = listOf(
         1 to "Pazartesi", 2 to "Salı", 3 to "Çarşamba", 4 to "Perşembe",
         5 to "Cuma", 6 to "Cumartesi", 7 to "Pazar"
     )
 
     init {
-        println("DEBUG: WeeklyScheduleAdapter oluşturuldu - ${daysOfWeek.size} gün")
+        println("DEBUG: ✅ WeeklyScheduleAdapter oluşturuldu - ${daysOfWeek.size} gün HER ZAMAN gösterilecek")
         daysOfWeek.forEachIndexed { index, (dayNum, dayName) ->
             println("DEBUG: $index. $dayNum -> $dayName")
         }
@@ -944,13 +939,15 @@ class WeeklyScheduleAdapter(
         val (dayNumber, dayName) = daysOfWeek[position]
         val context = holder.itemView.context
 
+        // ✅ Bu güne atanmış denetmeni bul (yoksa null)
         val assignedAuditor = weeklyAuditors.find { it.weekDay == dayNumber }
         val auditorName = if (assignedAuditor != null) {
             members.find { it.userId == assignedAuditor.auditorId }?.userName ?: "Bilinmeyen"
         } else {
-            "Atanmamış"
+            "Atanmamış" // ✅ Denetmen yoksa açık göster
         }
 
+        // Bugün mü kontrol et
         val calendar = Calendar.getInstance()
         val todayNumber = when (calendar.get(Calendar.DAY_OF_WEEK)) {
             Calendar.MONDAY -> 1
@@ -973,6 +970,7 @@ class WeeklyScheduleAdapter(
             innerLayout.setBackgroundColor(androidx.core.content.ContextCompat.getColor(context, R.color.primary))
         }
 
+        // Gün adı
         val dayText = android.widget.TextView(context)
         dayText.text = if (isToday) "🔴 $dayName (BUGÜN)" else dayName
         dayText.textSize = 16f
@@ -981,18 +979,20 @@ class WeeklyScheduleAdapter(
         dayText.setTextColor(androidx.core.content.ContextCompat.getColor(context, dayColor))
         dayText.layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
 
+        // Denetmen adı - ✅ Atanmamışsa da göster
         val auditorText = android.widget.TextView(context)
         auditorText.text = auditorName
         auditorText.textSize = 14f
         val auditorColor = if (isToday) {
             R.color.white
         } else if (assignedAuditor != null) {
-            R.color.black
+            R.color.black // Atanmış
         } else {
-            R.color.gray_dark
+            R.color.gray_dark // Atanmamış
         }
         auditorText.setTextColor(androidx.core.content.ContextCompat.getColor(context, auditorColor))
 
+        // Tıklama ok işareti
         val arrowText = android.widget.TextView(context)
         arrowText.text = "›"
         arrowText.textSize = 20f
@@ -1006,10 +1006,16 @@ class WeeklyScheduleAdapter(
         holder.cardView.removeAllViews()
         holder.cardView.addView(innerLayout)
 
+        // ✅ Her güne tıklanabilir
         holder.cardView.setOnClickListener {
+            println("DEBUG: ${dayName} günü tıklandı - Mevcut denetmen: $auditorName")
             onDayClick(dayNumber)
         }
     }
 
-    override fun getItemCount(): Int = daysOfWeek.size
+    // ✅ HER ZAMAN 7 gün döndür - Zorla sabit
+    override fun getItemCount(): Int {
+        println("DEBUG: ✅ getItemCount() = 7 (Hep 7 gün zorla gösterilecek)")
+        return 7 // Sabit 7 gün, hiçbir koşulda değişmez
+    }
 }

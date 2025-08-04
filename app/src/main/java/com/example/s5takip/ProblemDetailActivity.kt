@@ -27,6 +27,7 @@ class ProblemDetailActivity : AppCompatActivity() {
     private var currentUser: User? = null
     private var problem: Problem? = null
     private var solutions = mutableListOf<Solution>()
+    private var currentGroupId: String = "" // ✅ Grup ID'si
 
     companion object {
         const val EXTRA_PROBLEM_ID = "problem_id"
@@ -74,7 +75,7 @@ class ProblemDetailActivity : AppCompatActivity() {
     }
 
     /**
-     * Problem bilgilerini yükle
+     * Problem bilgilerini yükle - Grup ID'sini ayarla
      */
     private fun loadProblem() {
         val problemId = intent.getStringExtra(EXTRA_PROBLEM_ID)
@@ -93,6 +94,10 @@ class ProblemDetailActivity : AppCompatActivity() {
             finish()
             return
         }
+
+        // ✅ Grup ID'sini problemden al
+        currentGroupId = problem!!.groupId
+        println("DEBUG: Problem yüklendi - Grup ID: $currentGroupId")
 
         // Problem bilgilerini ekranda göster
         displayProblemInfo()
@@ -134,7 +139,7 @@ class ProblemDetailActivity : AppCompatActivity() {
     }
 
     /**
-     * Çözümleri yükle - Güncellenmiş versiyon
+     * Çözümleri yükle - Grup filtresiz (problemId unique)
      */
     private fun loadSolutions() {
         if (problem == null) return
@@ -144,7 +149,6 @@ class ProblemDetailActivity : AppCompatActivity() {
             solutions.clear()
             solutions.addAll(loadedSolutions)
 
-            // Debug için log ekle
             println("DEBUG: Problem ID: ${problem!!.id}")
             println("DEBUG: Bulunan çözüm sayısı: ${solutions.size}")
 
@@ -186,30 +190,31 @@ class ProblemDetailActivity : AppCompatActivity() {
     }
 
     /**
-     * Tıklama olaylarını ayarla - SADECE DENETMENLİK YETKİSİ KONTROLÜ
+     * Çözüm ekleme butonu - Grup ID'si ile
      */
     private fun setupClickListeners() {
-        // Çözüm ekleme butonu - HERKESİN EKLEYEBİLMESİ İÇİN
+        // Çözüm ekleme butonu - Grup ID'si ile
         binding.btnDetailAddSolution.setOnClickListener {
             if (problem != null) {
                 val intent = Intent(this, AddSolutionActivity::class.java)
                 intent.putExtra(AddSolutionActivity.EXTRA_PROBLEM_ID, problem!!.id)
+                intent.putExtra("group_id", problem!!.groupId) // ✅ Grup ID'sini gönder
                 startActivity(intent)
             }
         }
 
-        // ✅ Durum değiştirme butonu - SADECE DENETMENLERİN GÖREBİLMESİ
+        // Durum değiştirme yetkisi kontrolü
         val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
         val isDenetmen = checkIfCurrentUserIsAuditor()
 
         if (isDenetmen) {
-            // Denetmense durum değiştirme butonu göster
+            // Denetmense durum değiştirme butonları göster
             binding.btnDetailEditStatus.visibility = View.VISIBLE
             binding.btnDetailEditStatus.setOnClickListener {
                 showStatusChangeDialog()
             }
 
-            // Hızlı durum değiştirme butonları göster
+            // Hızlı durum değiştirme butonları
             binding.cvQuickStatus.visibility = View.VISIBLE
 
             binding.btnStatusProgress.setOnClickListener {
@@ -227,8 +232,6 @@ class ProblemDetailActivity : AppCompatActivity() {
             // Denetmen değilse durum değiştirme butonlarını gizle
             binding.btnDetailEditStatus.visibility = View.GONE
             binding.cvQuickStatus.visibility = View.GONE
-
-            println("DEBUG: Normal kullanıcı - durum değiştirme yetkileri gizlendi")
         }
     }
 

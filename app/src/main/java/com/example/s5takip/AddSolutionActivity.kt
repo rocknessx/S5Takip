@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.fabrika.s5takip.databinding.ActivityAddSolutionBinding
 import com.github.dhaval2404.imagepicker.ImagePicker
+import com.google.firebase.auth.FirebaseAuth
 
 /**
  * Çözüm ekleme ekranı
@@ -28,6 +29,7 @@ class AddSolutionActivity : AppCompatActivity() {
     private var problem: Problem? = null
     private var selectedImageUri: Uri? = null
     private var isImplemented = false // Çözüm uygulandı mı?
+    private var currentGroupId: String = "" // ✅ Grup ID'si
 
     companion object {
         const val EXTRA_PROBLEM_ID = "problem_id"
@@ -57,6 +59,10 @@ class AddSolutionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityAddSolutionBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // ✅ Intent'ten grup ID'sini al (problem detayından gelir)
+        currentGroupId = intent.getStringExtra("group_id") ?: ""
+        println("DEBUG: AddSolutionActivity başlatıldı - Grup ID: $currentGroupId")
 
         // Başlangıç ayarları
         initializeComponents()
@@ -99,7 +105,7 @@ class AddSolutionActivity : AppCompatActivity() {
     }
 
     /**
-     * Problem bilgilerini yükle
+     * Problem bilgilerini yükle - Grup kontrolü ile
      */
     private fun loadProblem() {
         val problemId = intent.getStringExtra(EXTRA_PROBLEM_ID)
@@ -109,10 +115,9 @@ class AddSolutionActivity : AppCompatActivity() {
             return
         }
 
-        // Debug: Problem ID
         println("DEBUG: Yüklenen Problem ID: $problemId")
 
-        // Problem'i veritabanından bul
+        // Problem'i veritabanından bul - Grup filtresiz arama (problemId unique)
         val problems = databaseHelper.getProblemsForDate(getCurrentDate())
         problem = problems.find { it.id == problemId }
 
@@ -122,13 +127,27 @@ class AddSolutionActivity : AppCompatActivity() {
             return
         }
 
-        // Debug: Problem bilgisi
-        println("DEBUG: Problem bulundu: ${problem?.description?.take(50)}...")
+        // ✅ Grup ID'sini problem'den al (eğer intent'te yoksa)
+        if (currentGroupId.isEmpty()) {
+            currentGroupId = problem!!.groupId
+            println("DEBUG: Grup ID problem'den alındı: $currentGroupId")
+        }
+
+        // ✅ Problem grup kontrolü
+        if (problem!!.groupId != currentGroupId) {
+            println("DEBUG: ⚠️ Grup uyuşmazlığı - Problem Grup: ${problem!!.groupId}, Mevcut Grup: $currentGroupId")
+            Toast.makeText(this, "Bu problem farklı bir gruba ait", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        println("DEBUG: ✅ Problem bulundu ve grup uyumlu: ${problem?.description?.take(50)}...")
 
         // Problem bilgilerini ekranda göster
         binding.tvProblemDescription.text = problem!!.description
         binding.tvProblemLocation.text = "📍 ${problem!!.location}"
     }
+
 
     /**
      * Tıklama olaylarını ayarla
@@ -202,7 +221,7 @@ class AddSolutionActivity : AppCompatActivity() {
     }
 
     /**
-     * Çözümü kaydet - DÜZELTILMIŞ: Firebase kullanıcısından isim al
+     * Çözümü kaydet - GRUP ID'Sİ İLE
      */
     private fun saveSolution() {
         val description = binding.etSolutionDescription.text.toString().trim()
@@ -218,18 +237,14 @@ class AddSolutionActivity : AppCompatActivity() {
             return
         }
 
-        // ✅ Firebase kullanıcısını al - gerçek kullanıcı adı için
-        val currentFirebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        // ✅ Firebase kullanıcısını al
+        val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
         if (currentFirebaseUser == null) {
             Toast.makeText(this, "Giriş yapılmamış", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Debug: Kaydetme başlangıcı
-        println("DEBUG: Çözüm kaydetme başladı...")
-        println("DEBUG: Açıklama: ${description.take(50)}...")
-        println("DEBUG: Fotoğraf var mı: ${selectedImageUri != null}")
-        println("DEBUG: Uygulama durumu: $isImplemented")
+        println("DEBUG: Çözüm kaydetme başladı - Grup ID: $currentGroupId...")
         println("DEBUG: ✅ Çözümü yazan: ${currentFirebaseUser.displayName}")
 
         // Kaydet butonunu deaktif et
@@ -237,8 +252,9 @@ class AddSolutionActivity : AppCompatActivity() {
         binding.btnSaveSolution.text = "Kaydediliyor..."
 
         try {
-            // ✅ Çözüm objesi oluştur - GERÇEKLEŞTİREN KİŞİNİN BİLGİLERİYLE
+            // ✅ Çözüm objesi oluştur - GRUP ID'Sİ İLE
             val solution = Solution(
+                groupId = currentGroupId, // ✅ Grup ID'si eklendi
                 problemId = problem!!.id,
                 userId = currentFirebaseUser.uid,
                 userName = currentFirebaseUser.displayName ?: currentFirebaseUser.email ?: "Kullanıcı",
@@ -247,12 +263,10 @@ class AddSolutionActivity : AppCompatActivity() {
                 isVerified = false
             )
 
-            // Debug: Çözüm objesi
             println("DEBUG: ✅ Çözüm objesi oluşturuldu:")
-            println("DEBUG: - ID: ${solution.id}")
-            println("DEBUG: - Kullanıcı ID: ${solution.userId}")
-            println("DEBUG: - Kullanıcı Adı: ${solution.userName}")
+            println("DEBUG: - Grup ID: ${solution.groupId}")
             println("DEBUG: - Problem ID: ${solution.problemId}")
+            println("DEBUG: - Kullanıcı: ${solution.userName}")
 
             var savedImagePath: String? = null
 
@@ -268,20 +282,14 @@ class AddSolutionActivity : AppCompatActivity() {
                 imagePath = savedImagePath ?: ""
             )
 
-            // Debug: Final çözüm objesi
-            println("DEBUG: ✅ Final çözüm objesi:")
-            println("DEBUG: - Problem ID: ${updatedSolution.problemId}")
-            println("DEBUG: - Kullanıcı: ${updatedSolution.userName}")
-            println("DEBUG: - Fotoğraf: ${updatedSolution.imagePath}")
+            println("DEBUG: ✅ Final çözüm objesi - Grup: ${updatedSolution.groupId}")
 
             // Veritabanına kaydet
             println("DEBUG: Veritabanına kaydediliyor...")
             val success = databaseHelper.insertSolution(updatedSolution)
 
             if (success) {
-                // Debug: Başarılı kayıt
                 println("DEBUG: ✅ Çözüm başarıyla kaydedildi!")
-                println("DEBUG: ✅ Çözümü yazan: ${updatedSolution.userName}")
 
                 // Eğer çözüm uygulandıysa, problem durumunu güncelle
                 if (isImplemented) {
@@ -290,21 +298,16 @@ class AddSolutionActivity : AppCompatActivity() {
                     println("DEBUG: Problem durumu RESOLVED olarak güncellendi")
 
                     Toast.makeText(this,
-                        "✅ Çözüm kaydedildi ve problem çözüldü olarak işaretlendi!\n\n" +
-                                "Çözümü yazan: ${updatedSolution.userName}",
+                        "✅ Çözüm kaydedildi ve problem çözüldü!\n\n" +
+                                "📋 Grup: $currentGroupId\n" +
+                                "👤 Çözümü yazan: ${updatedSolution.userName}",
                         Toast.LENGTH_LONG).show()
                 } else {
                     Toast.makeText(this,
                         "✅ Çözüm önerisi başarıyla kaydedildi!\n\n" +
-                                "Öneren: ${updatedSolution.userName}",
+                                "📋 Grup: $currentGroupId\n" +
+                                "👤 Öneren: ${updatedSolution.userName}",
                         Toast.LENGTH_LONG).show()
-                }
-
-                // Debug: Kayıt sonrası kontrol
-                val checkSolutions = databaseHelper.getSolutionsForProblem(problem!!.id)
-                println("DEBUG: Kayıt sonrası bu problem için toplam çözüm sayısı: ${checkSolutions.size}")
-                checkSolutions.forEach { sol ->
-                    println("DEBUG: - ${sol.userName}: ${sol.description.take(30)}...")
                 }
 
                 // Başarılı kayıt sonrası geri dön

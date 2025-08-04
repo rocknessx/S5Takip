@@ -27,11 +27,22 @@ class ProblemsListActivity : AppCompatActivity() {
     private var currentUser: User? = null
     private var currentDate: String = getCurrentDate()
     private var problems = mutableListOf<Problem>()
+    private var currentGroupId: String = "" // ✅ Grup ID'si
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityProblemsListBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // ✅ Intent'ten grup ID'sini al
+        currentGroupId = intent.getStringExtra("group_id") ?: ""
+        println("DEBUG: ProblemsListActivity başlatıldı - Grup ID: $currentGroupId")
+
+        if (currentGroupId.isEmpty()) {
+            Toast.makeText(this, "Grup bilgisi bulunamadı", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
 
         // Başlangıç ayarları
         initializeComponents()
@@ -45,6 +56,7 @@ class ProblemsListActivity : AppCompatActivity() {
         supportActionBar?.title = "Problemler"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
     }
+
 
     /**
      * Bileşenleri başlat
@@ -189,12 +201,12 @@ class ProblemsListActivity : AppCompatActivity() {
     }
 
     /**
-     * Problemleri yükle - Güncellenmiş versiyon
+     * Problemleri yükle - GRUP FİLTRELİ VERSİYON
      */
     private fun loadProblems() {
         try {
-            // Seçili tarihin problemlerini getir
-            val loadedProblems = databaseHelper.getProblemsForDate(currentDate)
+            // ✅ Seçili grup ve tarihin problemlerini getir
+            val loadedProblems = databaseHelper.getProblemsForGroupAndDate(currentGroupId, currentDate)
 
             problems.clear()
             problems.addAll(loadedProblems)
@@ -213,16 +225,22 @@ class ProblemsListActivity : AppCompatActivity() {
                 val date = inputFormat.parse(currentDate)
                 val formattedDate = if (date != null) displayFormat.format(date) else "bu tarihte"
 
-                Toast.makeText(this, "$formattedDate problem bulunmuyor", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this,
+                    "Bu grupta $formattedDate problem bulunmuyor",
+                    Toast.LENGTH_SHORT).show()
             } else {
                 binding.rvProblems.visibility = View.VISIBLE
                 binding.llEmptyState.visibility = View.GONE
 
-                Toast.makeText(this, "${problems.size} problem bulundu", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this,
+                    "Bu grupta ${problems.size} problem bulundu",
+                    Toast.LENGTH_SHORT).show()
             }
 
             // İstatistikleri güncelle
             updateStatistics()
+
+            println("DEBUG: ✅ Grup $currentGroupId için $currentDate tarihinde ${problems.size} problem yüklendi")
 
         } catch (e: Exception) {
             Toast.makeText(this, "Problemler yüklenirken hata: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -231,10 +249,10 @@ class ProblemsListActivity : AppCompatActivity() {
     }
 
     /**
-     * İstatistikleri güncelle - Seçili tarihe göre
+     * İstatistikleri güncelle - GRUP FİLTRELİ VERSİYON
      */
     private fun updateStatistics() {
-        val stats = databaseHelper.getStatsForDate(currentDate)
+        val stats = databaseHelper.getStatsForGroupAndDate(currentGroupId, currentDate)
 
         binding.tvStatTotal.text = stats.totalProblems.toString()
         binding.tvStatOpen.text = stats.openProblems.toString()
@@ -242,7 +260,7 @@ class ProblemsListActivity : AppCompatActivity() {
         binding.tvStatResolved.text = (stats.resolvedProblems + stats.verifiedProblems).toString()
 
         // Debug log
-        println("DEBUG: $currentDate için istatistikler güncellendi")
+        println("DEBUG: ✅ Grup $currentGroupId için $currentDate tarihinde istatistikler güncellendi")
         println("DEBUG: Toplam: ${stats.totalProblems}, Açık: ${stats.openProblems}")
     }
 

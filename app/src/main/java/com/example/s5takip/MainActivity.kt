@@ -324,24 +324,24 @@ class MainActivity : AppCompatActivity() {
         binding.btnAddProblem.setOnClickListener {
             if (binding.btnAddProblem.isEnabled) {
                 val intent = Intent(this, AddProblemActivity::class.java)
-                intent.putExtra("group_id", currentGroupId)
+                intent.putExtra("group_id", currentGroupId) // ✅ Grup ID'si gönder
                 startActivity(intent)
             } else {
                 Toast.makeText(this, "Sadece bugünün denetmeni, grup sahibi veya yönetici problem ekleyebilir", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Problemleri görüntüleme butonu
+        // Problemleri görüntüleme butonu - Grup ID'si ile
         binding.btnViewProblems.setOnClickListener {
             val intent = Intent(this, ProblemsListActivity::class.java)
-            intent.putExtra("group_id", currentGroupId)
+            intent.putExtra("group_id", currentGroupId) // ✅ Grup ID'si gönder
             startActivity(intent)
         }
 
-        // Rapor oluşturma butonu
+        // Rapor oluşturma butonu - Grup ID'si ile
         binding.btnGenerateReport.setOnClickListener {
             val intent = Intent(this, ReportActivity::class.java)
-            intent.putExtra("group_id", currentGroupId)
+            intent.putExtra("group_id", currentGroupId) // ✅ Grup ID'si gönder
             startActivity(intent)
         }
 
@@ -396,7 +396,11 @@ class MainActivity : AppCompatActivity() {
      */
     private fun updateStats() {
         val today = getCurrentDate()
-        val stats = databaseHelper.getStatsForDate(today)
+        val stats = if (currentGroupId.isNotEmpty()) {
+            databaseHelper.getStatsForGroupAndDate(currentGroupId, today)
+        } else {
+            databaseHelper.getStatsForDate(today) // Fallback eski fonksiyon
+        }
 
         // İstatistikleri ekranda göster
         binding.tvTotalProblems.text = stats.totalProblems.toString()

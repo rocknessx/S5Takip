@@ -27,6 +27,7 @@ class AddProblemActivity : AppCompatActivity() {
     private var currentUser: User? = null
     private var selectedImageUri: Uri? = null
     private var selectedPriority: ProblemPriority = ProblemPriority.MEDIUM
+    private var currentGroupId: String = "" // ✅ Grup ID'si
 
     // Fotoğraf seçme için launcher
     private val imagePickerLauncher = registerForActivityResult(
@@ -53,7 +54,15 @@ class AddProblemActivity : AppCompatActivity() {
         binding = ActivityAddProblemBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        println("DEBUG: AddProblemActivity başlatıldı")
+        // ✅ Intent'ten grup ID'sini al
+        currentGroupId = intent.getStringExtra("group_id") ?: ""
+        println("DEBUG: AddProblemActivity başlatıldı - Grup ID: $currentGroupId")
+
+        if (currentGroupId.isEmpty()) {
+            Toast.makeText(this, "Grup bilgisi bulunamadı", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
 
         // Başlangıç ayarları
         initializeComponents()
@@ -224,15 +233,12 @@ class AddProblemActivity : AppCompatActivity() {
         println("DEBUG: Form geçerliliği: $isFormValid (Açıklama: ${description.isNotEmpty()}, Konum: ${location.isNotEmpty()}, Fotoğraf: ${selectedImageUri != null})")
     }
 
-    /**
-     * Problem objesi oluştur - Düzeltilmiş versiyon
-     * Firebase kullanıcısının adını alır
-     */
+
     private fun saveProblem() {
         val description = binding.etProblemDescription.text.toString().trim()
         val location = binding.etLocation.text.toString().trim()
 
-        println("DEBUG: Problem kaydetme başladı")
+        println("DEBUG: Problem kaydetme başladı - Grup ID: $currentGroupId")
 
         // Form kontrolü
         if (description.isEmpty() || location.isEmpty() || selectedImageUri == null) {
@@ -253,19 +259,19 @@ class AddProblemActivity : AppCompatActivity() {
         binding.btnSaveProblem.text = "Kaydediliyor..."
 
         try {
-            // Problem objesi oluştur - GERÇEKLEŞTİREN DENETMENİN BİLGİLERİYLE
+            // ✅ Problem objesi oluştur - GRUP ID'Sİ İLE
             val problem = Problem(
+                groupId = currentGroupId, // ✅ Grup ID'si eklendi
                 description = description,
                 location = location,
                 priority = selectedPriority,
                 status = ProblemStatus.OPEN,
-                // ✅ Firebase kullanıcısının bilgilerini kullan
                 auditorId = currentFirebaseUser.uid,
                 auditorName = currentFirebaseUser.displayName ?: currentFirebaseUser.email ?: "Denetmen",
                 imagePath = "" // Önce boş, fotoğraf kaydedildikten sonra güncellenecek
             )
 
-            println("DEBUG: Problem objesi oluşturuldu - Denetmen: ${problem.auditorName}")
+            println("DEBUG: Problem objesi oluşturuldu - Grup ID: ${problem.groupId}, Denetmen: ${problem.auditorName}")
 
             // Fotoğrafı kaydet
             println("DEBUG: Fotoğraf kaydediliyor...")
@@ -278,30 +284,34 @@ class AddProblemActivity : AppCompatActivity() {
                 val updatedProblem = problem.copy(imagePath = savedImagePath)
 
                 // Veritabanına kaydet
-                println("DEBUG: Problem veritabanına kaydediliyor...")
+                println("DEBUG: Problem veritabanına kaydediliyor - Grup ID: ${updatedProblem.groupId}")
                 val success = databaseHelper.insertProblem(updatedProblem)
 
                 if (success) {
-                    println("DEBUG: Problem başarıyla kaydedildi - Denetmen: ${updatedProblem.auditorName}")
-                    Toast.makeText(this, "Problem başarıyla kaydedildi! ✓\nDenetmen: ${updatedProblem.auditorName}", Toast.LENGTH_LONG).show()
+                    println("DEBUG: ✅ Problem başarıyla kaydedildi - Grup: ${updatedProblem.groupId}, Denetmen: ${updatedProblem.auditorName}")
+                    Toast.makeText(this,
+                        "✅ Problem başarıyla kaydedildi!\n\n" +
+                                "📋 Grup: $currentGroupId\n" +
+                                "👤 Denetmen: ${updatedProblem.auditorName}",
+                        Toast.LENGTH_LONG).show()
 
                     // Başarılı kayıt sonrası ana sayfaya dön
                     setResult(Activity.RESULT_OK)
                     finish()
                 } else {
-                    println("DEBUG: Problem veritabanına kaydedilemedi")
+                    println("DEBUG: ❌ Problem veritabanına kaydedilemedi")
                     Toast.makeText(this, "Problem kaydedilemedi", Toast.LENGTH_SHORT).show()
 
                     // Hata durumunda fotoğrafı sil
                     photoManager.deletePhoto(savedImagePath)
                 }
             } else {
-                println("DEBUG: Fotoğraf kaydedilemedi")
+                println("DEBUG: ❌ Fotoğraf kaydedilemedi")
                 Toast.makeText(this, "Fotoğraf kaydedilemedi", Toast.LENGTH_SHORT).show()
             }
 
         } catch (e: Exception) {
-            println("DEBUG: Problem kaydetme hatası: ${e.message}")
+            println("DEBUG: ❌ Problem kaydetme hatası: ${e.message}")
             e.printStackTrace()
             Toast.makeText(this, "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
         } finally {
@@ -310,6 +320,7 @@ class AddProblemActivity : AppCompatActivity() {
             binding.btnSaveProblem.text = "Kaydet"
         }
     }
+
 
     /**
      * Geri buton basıldığında
