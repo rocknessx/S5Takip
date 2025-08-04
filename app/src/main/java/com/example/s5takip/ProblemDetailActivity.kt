@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.fabrika.s5takip.databinding.ActivityProblemDetailBinding
+import com.google.firebase.auth.FirebaseAuth
 
 /**
  * Problem detay ekranı
@@ -101,7 +102,7 @@ class ProblemDetailActivity : AppCompatActivity() {
     }
 
     /**
-     * Problem bilgilerini ekranda göster
+     * Problem bilgilerini ekranda göster - DENETMENİN ADINI GÖSTER
      */
     private fun displayProblemInfo() {
         if (problem == null) return
@@ -110,6 +111,8 @@ class ProblemDetailActivity : AppCompatActivity() {
         binding.tvDetailStatus.text = problem!!.status.toTurkish()
         binding.tvDetailDescription.text = problem!!.description
         binding.tvDetailLocation.text = problem!!.location
+
+        // ✅ Problemin gerçek denetmenini göster
         binding.tvDetailAuditor.text = problem!!.auditorName
         binding.tvDetailPriority.text = problem!!.priority.toTurkish()
 
@@ -126,6 +129,8 @@ class ProblemDetailActivity : AppCompatActivity() {
         } else {
             binding.ivDetailProblemPhoto.setImageResource(android.R.drawable.ic_menu_gallery)
         }
+
+        println("DEBUG: Problem bilgileri güncellendi - Denetmen: ${problem!!.auditorName}")
     }
 
     /**
@@ -181,10 +186,10 @@ class ProblemDetailActivity : AppCompatActivity() {
     }
 
     /**
-     * Tıklama olaylarını ayarla
+     * Tıklama olaylarını ayarla - SADECE DENETMENLİK YETKİSİ KONTROLÜ
      */
     private fun setupClickListeners() {
-        // Çözüm ekleme butonu
+        // Çözüm ekleme butonu - HERKESİN EKLEYEBİLMESİ İÇİN
         binding.btnDetailAddSolution.setOnClickListener {
             if (problem != null) {
                 val intent = Intent(this, AddSolutionActivity::class.java)
@@ -193,17 +198,18 @@ class ProblemDetailActivity : AppCompatActivity() {
             }
         }
 
-        // Durum değiştirme butonu
-        binding.btnDetailEditStatus.setOnClickListener {
-            if (currentUser?.role == UserRole.AUDITOR) {
-                showStatusChangeDialog()
-            } else {
-                Toast.makeText(this, "Bu işlem için denetmen yetkisi gerekli", Toast.LENGTH_SHORT).show()
-            }
-        }
+        // ✅ Durum değiştirme butonu - SADECE DENETMENLERİN GÖREBİLMESİ
+        val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
+        val isDenetmen = checkIfCurrentUserIsAuditor()
 
-        // Hızlı durum değiştirme butonları (sadece denetmenler için)
-        if (currentUser?.role == UserRole.AUDITOR) {
+        if (isDenetmen) {
+            // Denetmense durum değiştirme butonu göster
+            binding.btnDetailEditStatus.visibility = View.VISIBLE
+            binding.btnDetailEditStatus.setOnClickListener {
+                showStatusChangeDialog()
+            }
+
+            // Hızlı durum değiştirme butonları göster
             binding.cvQuickStatus.visibility = View.VISIBLE
 
             binding.btnStatusProgress.setOnClickListener {
@@ -218,8 +224,32 @@ class ProblemDetailActivity : AppCompatActivity() {
                 updateProblemStatus(ProblemStatus.VERIFIED)
             }
         } else {
+            // Denetmen değilse durum değiştirme butonlarını gizle
+            binding.btnDetailEditStatus.visibility = View.GONE
             binding.cvQuickStatus.visibility = View.GONE
+
+            println("DEBUG: Normal kullanıcı - durum değiştirme yetkileri gizlendi")
         }
+    }
+
+    /**
+     * Mevcut kullanıcının denetmen olup olmadığını kontrol et
+     */
+    private fun checkIfCurrentUserIsAuditor(): Boolean {
+        val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
+        if (currentFirebaseUser == null) return false
+
+        // Problem sahibi denetmen mi kontrol et
+        if (problem?.auditorId == currentFirebaseUser.uid) {
+            println("DEBUG: Kullanıcı bu problemin denetmeni")
+            return true
+        }
+
+        // Grup ayarlarından denetmenlik yetkilerini kontrol et (opsiyonel)
+        // Bu kısım grup yönetimi sistemiyle entegre edilebilir
+
+        println("DEBUG: Kullanıcı denetmen değil - ID: ${currentFirebaseUser.uid}, Problem Denetmen ID: ${problem?.auditorId}")
+        return false
     }
 
     /**
@@ -263,10 +293,16 @@ class ProblemDetailActivity : AppCompatActivity() {
     }
 
     /**
-     * Problem durumunu güncelle
+     * Problem durumunu güncelle - YETKİ KONTROLÜ İLE
      */
     private fun updateProblemStatus(newStatus: ProblemStatus) {
         if (problem == null) return
+
+        // ✅ Denetmenlik kontrolü
+        if (!checkIfCurrentUserIsAuditor()) {
+            Toast.makeText(this, "❌ Bu işlem için denetmen yetkisi gerekli", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         try {
             val success = databaseHelper.updateProblemStatus(problem!!.id, newStatus)
@@ -281,22 +317,22 @@ class ProblemDetailActivity : AppCompatActivity() {
                 // Başarı mesajı
                 Toast.makeText(
                     this,
-                    "Problem durumu '${newStatus.toTurkish()}' olarak güncellendi ✓",
+                    "✅ Problem durumu '${newStatus.toTurkish()}' olarak güncellendi",
                     Toast.LENGTH_SHORT
                 ).show()
 
-                // Debug log
                 println("DEBUG: Problem durumu güncellendi: ${newStatus.toTurkish()}")
 
             } else {
-                Toast.makeText(this, "Durum güncellenirken hata oluştu", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "❌ Durum güncellenirken hata oluştu", Toast.LENGTH_SHORT).show()
             }
 
         } catch (e: Exception) {
-            Toast.makeText(this, "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "❌ Hata: ${e.message}", Toast.LENGTH_SHORT).show()
             e.printStackTrace()
         }
     }
+
 
     /**
      * Problem durumuna göre renk döndür

@@ -120,31 +120,7 @@ class FirebaseManager private constructor() {
         }
     }
 
-    /**
-     * Firestore bağlantısını test et - Güvenli versiyon
-     */
-    suspend fun testFirestoreConnection(): Result<Unit> {
-        return try {
-            println("DEBUG: Firestore bağlantısı test ediliyor...")
 
-            val testData = hashMapOf<String, Any>(
-                "test" to "connection",
-                "timestamp" to System.currentTimeMillis(),
-                "user" to (getCurrentUser()?.email ?: "anonymous")
-            )
-
-            firestore.collection("test")
-                .document("connection_test")
-                .set(testData)
-                .await()
-
-            println("DEBUG: Firestore test başarılı")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            println("DEBUG: Firestore test hatası: ${e.message}")
-            Result.failure(e)
-        }
-    }
 
     /**
      * Firestore'a test yazma işlemi - GroupChatActivity için

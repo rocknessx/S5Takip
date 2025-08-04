@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import java.util.*
 
 /**
- * Grup sohbet ekranı - Tamamen Düzeltilmiş Versiyon
+ * Grup sohbet ekranı - Avatar Destekli Final Versiyon
  */
 class GroupChatActivity : AppCompatActivity() {
 
@@ -155,7 +155,7 @@ class GroupChatActivity : AppCompatActivity() {
 
                     // Debug: İlk birkaç mesajı logla
                     messages.take(3).forEach { message ->
-                        println("DEBUG: Mesaj - ${message.senderName}: ${message.message.take(20)}...")
+                        println("DEBUG: Mesaj - ${message.senderName}: ${message.message.take(20)}... Avatar: ${message.senderAvatar}")
                     }
 
                     chatMessages.clear()
@@ -254,7 +254,7 @@ class GroupChatActivity : AppCompatActivity() {
     }
 
     /**
-     * Metin mesajı gönder - Güvenli versiyon
+     * Metin mesajı gönder - Avatar bilgisi ile güncellenmiş versiyon
      */
     private fun sendTextMessage() {
         val messageText = binding.etMessageInput.text.toString().trim()
@@ -275,12 +275,16 @@ class GroupChatActivity : AppCompatActivity() {
         // Mesaj gönder butonunu deaktif et
         binding.btnSendMessage.isEnabled = false
 
+        // ✅ Avatar URL'sini Firebase kullanıcısından al
+        val avatarUrl = currentUser.photoUrl?.toString() ?: ""
+        println("DEBUG: Kullanıcı avatar URL: $avatarUrl")
+
         val chatMessage = ChatMessage(
             id = UUID.randomUUID().toString(),
             groupId = groupId,
             senderId = currentUser.uid,
             senderName = currentUser.displayName ?: currentUser.email ?: "Kullanıcı",
-            senderAvatar = currentUser.photoUrl?.toString() ?: "",
+            senderAvatar = avatarUrl, // ✅ Avatar URL'si eklendi
             message = messageText,
             messageType = "TEXT",
             createdAt = System.currentTimeMillis()
@@ -292,7 +296,7 @@ class GroupChatActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     if (result.isSuccess) {
-                        println("DEBUG: ✅ Mesaj başarıyla gönderildi")
+                        println("DEBUG: ✅ Mesaj başarıyla gönderildi - Avatar: ${chatMessage.senderAvatar}")
 
                         // Mesajı listeye ekle
                         chatMessages.add(chatMessage)
@@ -345,7 +349,7 @@ class GroupChatActivity : AppCompatActivity() {
     }
 
     /**
-     * Fotoğraf mesajı gönder
+     * Fotoğraf mesajı gönder - Avatar bilgisi ile güncellenmiş versiyon
      */
     private fun sendImageMessage() {
         if (selectedImageUri == null) return
@@ -361,12 +365,15 @@ class GroupChatActivity : AppCompatActivity() {
         // Fotoğraf gönder butonunu deaktif et
         binding.btnSendPhoto.isEnabled = false
 
+        // ✅ Avatar URL'sini Firebase kullanıcısından al
+        val avatarUrl = currentUser.photoUrl?.toString() ?: ""
+
         val chatMessage = ChatMessage(
             id = UUID.randomUUID().toString(),
             groupId = groupId,
             senderId = currentUser.uid,
             senderName = currentUser.displayName ?: currentUser.email ?: "Kullanıcı",
-            senderAvatar = currentUser.photoUrl?.toString() ?: "",
+            senderAvatar = avatarUrl, // ✅ Avatar URL'si eklendi
             message = selectedImageUri.toString(), // Gerçek uygulamada Firebase Storage'a yüklenip URL alınır
             messageType = "IMAGE",
             createdAt = System.currentTimeMillis()
@@ -378,7 +385,7 @@ class GroupChatActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     if (result.isSuccess) {
-                        println("DEBUG: ✅ Fotoğraf mesajı başarıyla gönderildi")
+                        println("DEBUG: ✅ Fotoğraf mesajı başarıyla gönderildi - Avatar: ${chatMessage.senderAvatar}")
 
                         // Mesajı listeye ekle
                         chatMessages.add(chatMessage)
@@ -425,7 +432,7 @@ class GroupChatActivity : AppCompatActivity() {
 }
 
 /**
- * Chat mesajları için adapter - Tamamen Çalışır Versiyon
+ * Chat mesajları için adapter - Avatar Fotoğrafı Destekli Final Versiyon
  */
 class ChatAdapter(
     private val messages: List<ChatMessage>
@@ -476,24 +483,67 @@ class ChatAdapter(
             )
         }
 
-        // Avatar
+        // ✅ AVATAR CONTAINER - Geliştirilmiş fotoğraf desteği ile
         val avatarFrame = android.widget.FrameLayout(context)
-        avatarFrame.layoutParams = android.widget.LinearLayout.LayoutParams(40, 40)
+        avatarFrame.layoutParams = android.widget.LinearLayout.LayoutParams(48, 48)
 
-        val avatarText = android.widget.TextView(context)
-        avatarText.text = message.senderName.take(1).uppercase()
-        avatarText.textSize = 14f
-        avatarText.setTypeface(null, android.graphics.Typeface.BOLD)
-        avatarText.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.white))
-        avatarText.background = if (isOwnMessage) {
-            androidx.core.content.ContextCompat.getDrawable(context, R.color.accent)
-        } else {
-            androidx.core.content.ContextCompat.getDrawable(context, R.color.gray_dark)
+        // Avatar fotoğrafını yüklemeyi dene
+        var avatarLoaded = false
+
+        // ✅ Avatar fotoğrafını yükleme
+        if (message.senderAvatar.isNotEmpty() && message.senderAvatar.startsWith("http")) {
+            try {
+                println("DEBUG: Avatar URL yükleniyor: ${message.senderAvatar}")
+
+                // Avatar fotoğrafı için ImageView
+                val avatarImageView = android.widget.ImageView(context)
+                avatarImageView.layoutParams = android.widget.FrameLayout.LayoutParams(48, 48)
+                avatarImageView.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+
+                // Circular shape için background
+                val shape = android.graphics.drawable.GradientDrawable()
+                shape.shape = android.graphics.drawable.GradientDrawable.OVAL
+                shape.setColor(androidx.core.content.ContextCompat.getColor(context, R.color.gray_light))
+                avatarImageView.background = shape
+
+                // URI'dan fotoğraf yükleme
+                val uri = android.net.Uri.parse(message.senderAvatar)
+                avatarImageView.setImageURI(uri)
+
+                avatarFrame.addView(avatarImageView)
+                avatarLoaded = true
+                println("DEBUG: ✅ Avatar fotoğrafı başarıyla yüklendi")
+
+            } catch (e: Exception) {
+                println("DEBUG: Avatar fotoğraf yükleme hatası: ${e.message}")
+                avatarLoaded = false
+            }
         }
-        avatarText.gravity = android.view.Gravity.CENTER
-        avatarText.layoutParams = android.widget.FrameLayout.LayoutParams(40, 40)
 
-        avatarFrame.addView(avatarText)
+        // Avatar yüklenemediyse harf kullan
+        if (!avatarLoaded) {
+            val avatarText = android.widget.TextView(context)
+            avatarText.text = message.senderName.take(1).uppercase()
+            avatarText.textSize = 16f
+            avatarText.setTypeface(null, android.graphics.Typeface.BOLD)
+            avatarText.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.white))
+
+            // Circular background
+            val shape = android.graphics.drawable.GradientDrawable()
+            shape.shape = android.graphics.drawable.GradientDrawable.OVAL
+            if (isOwnMessage) {
+                shape.setColor(androidx.core.content.ContextCompat.getColor(context, R.color.accent))
+            } else {
+                shape.setColor(androidx.core.content.ContextCompat.getColor(context, R.color.gray_dark))
+            }
+            avatarText.background = shape
+
+            avatarText.gravity = android.view.Gravity.CENTER
+            avatarText.layoutParams = android.widget.FrameLayout.LayoutParams(48, 48)
+
+            avatarFrame.addView(avatarText)
+            println("DEBUG: Avatar harf kullanılıyor: ${avatarText.text}")
+        }
 
         // Mesaj içeriği
         val messageContent = android.widget.LinearLayout(context)

@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.fabrika.s5takip.databinding.ActivityAddProblemBinding
 import com.github.dhaval2404.imagepicker.ImagePicker
+import com.google.firebase.auth.FirebaseAuth
 
 /**
  * Problem ekleme ekranı - Son güncel versiyon
@@ -224,17 +225,14 @@ class AddProblemActivity : AppCompatActivity() {
     }
 
     /**
-     * Problemi kaydet - Düzeltilmiş versiyon
+     * Problem objesi oluştur - Düzeltilmiş versiyon
+     * Firebase kullanıcısının adını alır
      */
     private fun saveProblem() {
         val description = binding.etProblemDescription.text.toString().trim()
         val location = binding.etLocation.text.toString().trim()
 
         println("DEBUG: Problem kaydetme başladı")
-        println("DEBUG: Açıklama: '$description'")
-        println("DEBUG: Konum: '$location'")
-        println("DEBUG: Öncelik: $selectedPriority")
-        println("DEBUG: Fotoğraf var: ${selectedImageUri != null}")
 
         // Form kontrolü
         if (description.isEmpty() || location.isEmpty() || selectedImageUri == null) {
@@ -242,9 +240,11 @@ class AddProblemActivity : AppCompatActivity() {
             return
         }
 
-        if (currentUser == null) {
-            println("DEBUG: Kullanıcı null, problem kaydedilemez")
-            Toast.makeText(this, "Kullanıcı bilgisi bulunamadı", Toast.LENGTH_SHORT).show()
+        // Firebase kullanıcısını al
+        val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
+        if (currentFirebaseUser == null) {
+            println("DEBUG: Firebase kullanıcı null, problem kaydedilemez")
+            Toast.makeText(this, "Giriş yapılmamış", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -253,18 +253,19 @@ class AddProblemActivity : AppCompatActivity() {
         binding.btnSaveProblem.text = "Kaydediliyor..."
 
         try {
-            // Problem objesi oluştur - Düzeltilmiş model parametreleri
+            // Problem objesi oluştur - GERÇEKLEŞTİREN DENETMENİN BİLGİLERİYLE
             val problem = Problem(
                 description = description,
                 location = location,
                 priority = selectedPriority,
                 status = ProblemStatus.OPEN,
-                auditorId = currentUser!!.id,
-                auditorName = currentUser!!.name,
+                // ✅ Firebase kullanıcısının bilgilerini kullan
+                auditorId = currentFirebaseUser.uid,
+                auditorName = currentFirebaseUser.displayName ?: currentFirebaseUser.email ?: "Denetmen",
                 imagePath = "" // Önce boş, fotoğraf kaydedildikten sonra güncellenecek
             )
 
-            println("DEBUG: Problem objesi oluşturuldu - ID: ${problem.id}")
+            println("DEBUG: Problem objesi oluşturuldu - Denetmen: ${problem.auditorName}")
 
             // Fotoğrafı kaydet
             println("DEBUG: Fotoğraf kaydediliyor...")
@@ -281,8 +282,8 @@ class AddProblemActivity : AppCompatActivity() {
                 val success = databaseHelper.insertProblem(updatedProblem)
 
                 if (success) {
-                    println("DEBUG: Problem başarıyla veritabanına kaydedildi")
-                    Toast.makeText(this, "Problem başarıyla kaydedildi! ✓", Toast.LENGTH_LONG).show()
+                    println("DEBUG: Problem başarıyla kaydedildi - Denetmen: ${updatedProblem.auditorName}")
+                    Toast.makeText(this, "Problem başarıyla kaydedildi! ✓\nDenetmen: ${updatedProblem.auditorName}", Toast.LENGTH_LONG).show()
 
                     // Başarılı kayıt sonrası ana sayfaya dön
                     setResult(Activity.RESULT_OK)
