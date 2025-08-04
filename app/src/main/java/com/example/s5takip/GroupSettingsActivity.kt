@@ -715,7 +715,7 @@ class GroupSettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Grup verilerini yükle
+     * Grup verilerini yükle - DÜZELTILMIŞ: Haftalık programa odaklan
      */
     private fun loadGroupData() {
         binding.progressLoading.visibility = View.VISIBLE
@@ -755,11 +755,22 @@ class GroupSettingsActivity : AppCompatActivity() {
                     weeklyAuditors.addAll(auditors)
 
                     runOnUiThread {
+                        // ✅ HAFTALIK PROGRAM ADAPTER'I YENİLE - TÜM GÜNLER HEP GÖZÜKMELİ
                         weeklyScheduleAdapter.notifyDataSetChanged()
-                        println("DEBUG: ✅ Haftalık denetmenler yüklendi: ${auditors.size} atama")
+                        println("DEBUG: ✅ Haftalık program güncellendi: ${auditors.size} atama")
+                        println("DEBUG: ✅ Adapter'da ${weeklyScheduleAdapter.itemCount} gün gösteriliyor")
+
+                        // Debug: Hangi günlerde denetmen var?
+                        auditors.forEach { auditor ->
+                            println("DEBUG: ${getDayName(auditor.weekDay)}: ${auditor.auditorName}")
+                        }
                     }
                 } else {
                     println("DEBUG: ❌ Haftalık denetmenler yüklenemedi: ${auditorsResult.exceptionOrNull()?.message}")
+                    // Hata olsa bile tüm günler gözükmeli
+                    runOnUiThread {
+                        weeklyScheduleAdapter.notifyDataSetChanged()
+                    }
                 }
 
                 runOnUiThread {
@@ -774,6 +785,9 @@ class GroupSettingsActivity : AppCompatActivity() {
                     binding.progressLoading.visibility = View.GONE
                     Toast.makeText(this@GroupSettingsActivity,
                         "Veri yüklenirken hata: ${e.message}", Toast.LENGTH_SHORT).show()
+
+                    // ✅ Hata olsa bile haftalık programı göster
+                    weeklyScheduleAdapter.notifyDataSetChanged()
                 }
             }
         }

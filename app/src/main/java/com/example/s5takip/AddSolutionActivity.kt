@@ -202,7 +202,7 @@ class AddSolutionActivity : AppCompatActivity() {
     }
 
     /**
-     * Çözümü kaydet
+     * Çözümü kaydet - DÜZELTILMIŞ: Firebase kullanıcısından isim al
      */
     private fun saveSolution() {
         val description = binding.etSolutionDescription.text.toString().trim()
@@ -213,8 +213,15 @@ class AddSolutionActivity : AppCompatActivity() {
             return
         }
 
-        if (currentUser == null || problem == null) {
-            Toast.makeText(this, "Eksik bilgi", Toast.LENGTH_SHORT).show()
+        if (problem == null) {
+            Toast.makeText(this, "Problem bilgisi eksik", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // ✅ Firebase kullanıcısını al - gerçek kullanıcı adı için
+        val currentFirebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentFirebaseUser == null) {
+            Toast.makeText(this, "Giriş yapılmamış", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -223,24 +230,29 @@ class AddSolutionActivity : AppCompatActivity() {
         println("DEBUG: Açıklama: ${description.take(50)}...")
         println("DEBUG: Fotoğraf var mı: ${selectedImageUri != null}")
         println("DEBUG: Uygulama durumu: $isImplemented")
+        println("DEBUG: ✅ Çözümü yazan: ${currentFirebaseUser.displayName}")
 
         // Kaydet butonunu deaktif et
         binding.btnSaveSolution.isEnabled = false
         binding.btnSaveSolution.text = "Kaydediliyor..."
 
         try {
-            // Çözüm objesi oluştur
+            // ✅ Çözüm objesi oluştur - GERÇEKLEŞTİREN KİŞİNİN BİLGİLERİYLE
             val solution = Solution(
                 problemId = problem!!.id,
-                userId = currentUser!!.id,
-                userName = currentUser!!.name,
+                userId = currentFirebaseUser.uid,
+                userName = currentFirebaseUser.displayName ?: currentFirebaseUser.email ?: "Kullanıcı",
                 description = description,
                 imagePath = "", // Önce boş, fotoğraf varsa güncellenecek
                 isVerified = false
             )
 
             // Debug: Çözüm objesi
-            println("DEBUG: Çözüm objesi oluşturuldu - ID: ${solution.id}")
+            println("DEBUG: ✅ Çözüm objesi oluşturuldu:")
+            println("DEBUG: - ID: ${solution.id}")
+            println("DEBUG: - Kullanıcı ID: ${solution.userId}")
+            println("DEBUG: - Kullanıcı Adı: ${solution.userName}")
+            println("DEBUG: - Problem ID: ${solution.problemId}")
 
             var savedImagePath: String? = null
 
@@ -257,8 +269,10 @@ class AddSolutionActivity : AppCompatActivity() {
             )
 
             // Debug: Final çözüm objesi
-            println("DEBUG: Final çözüm - Problem ID: ${updatedSolution.problemId}")
-            println("DEBUG: Final çözüm - Kullanıcı: ${updatedSolution.userName}")
+            println("DEBUG: ✅ Final çözüm objesi:")
+            println("DEBUG: - Problem ID: ${updatedSolution.problemId}")
+            println("DEBUG: - Kullanıcı: ${updatedSolution.userName}")
+            println("DEBUG: - Fotoğraf: ${updatedSolution.imagePath}")
 
             // Veritabanına kaydet
             println("DEBUG: Veritabanına kaydediliyor...")
@@ -267,6 +281,7 @@ class AddSolutionActivity : AppCompatActivity() {
             if (success) {
                 // Debug: Başarılı kayıt
                 println("DEBUG: ✅ Çözüm başarıyla kaydedildi!")
+                println("DEBUG: ✅ Çözümü yazan: ${updatedSolution.userName}")
 
                 // Eğer çözüm uygulandıysa, problem durumunu güncelle
                 if (isImplemented) {
@@ -274,21 +289,30 @@ class AddSolutionActivity : AppCompatActivity() {
                     databaseHelper.updateProblemStatus(problem!!.id, ProblemStatus.RESOLVED)
                     println("DEBUG: Problem durumu RESOLVED olarak güncellendi")
 
-                    Toast.makeText(this, "Çözüm kaydedildi ve problem çözüldü olarak işaretlendi! ✓", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this,
+                        "✅ Çözüm kaydedildi ve problem çözüldü olarak işaretlendi!\n\n" +
+                                "Çözümü yazan: ${updatedSolution.userName}",
+                        Toast.LENGTH_LONG).show()
                 } else {
-                    Toast.makeText(this, "Çözüm önerisi başarıyla kaydedildi! ✓", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this,
+                        "✅ Çözüm önerisi başarıyla kaydedildi!\n\n" +
+                                "Öneren: ${updatedSolution.userName}",
+                        Toast.LENGTH_LONG).show()
                 }
 
                 // Debug: Kayıt sonrası kontrol
                 val checkSolutions = databaseHelper.getSolutionsForProblem(problem!!.id)
                 println("DEBUG: Kayıt sonrası bu problem için toplam çözüm sayısı: ${checkSolutions.size}")
+                checkSolutions.forEach { sol ->
+                    println("DEBUG: - ${sol.userName}: ${sol.description.take(30)}...")
+                }
 
                 // Başarılı kayıt sonrası geri dön
                 setResult(Activity.RESULT_OK)
                 finish()
             } else {
                 println("DEBUG: ❌ Veritabanına kayıt başarısız!")
-                Toast.makeText(this, "Çözüm kaydedilemedi", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "❌ Çözüm kaydedilemedi", Toast.LENGTH_SHORT).show()
 
                 // Hata durumunda fotoğrafı sil
                 if (savedImagePath != null) {
@@ -299,7 +323,7 @@ class AddSolutionActivity : AppCompatActivity() {
         } catch (e: Exception) {
             println("DEBUG: ❌ Kaydetme hatası: ${e.message}")
             e.printStackTrace()
-            Toast.makeText(this, "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "💥 Hata: ${e.message}", Toast.LENGTH_SHORT).show()
         } finally {
             // Buton durumunu eski haline getir
             binding.btnSaveSolution.isEnabled = true

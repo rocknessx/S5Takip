@@ -432,7 +432,7 @@ class GroupChatActivity : AppCompatActivity() {
 }
 
 /**
- * Chat mesajları için adapter - Avatar Fotoğrafı Destekli Final Versiyon
+ * Chat mesajları için adapter - Avatar Fotoğrafı Destekli Final Versiyon - GÜNCELLENMIŞ
  */
 class ChatAdapter(
     private val messages: List<ChatMessage>
@@ -483,17 +483,17 @@ class ChatAdapter(
             )
         }
 
-        // ✅ AVATAR CONTAINER - Geliştirilmiş fotoğraf desteği ile
+        // ✅ AVATAR CONTAINER - Geliştirilmiş fotoğraf desteği ile - GÜNCELLENMIŞ
         val avatarFrame = android.widget.FrameLayout(context)
         avatarFrame.layoutParams = android.widget.LinearLayout.LayoutParams(48, 48)
 
         // Avatar fotoğrafını yüklemeyi dene
         var avatarLoaded = false
 
-        // ✅ Avatar fotoğrafını yükleme
-        if (message.senderAvatar.isNotEmpty() && message.senderAvatar.startsWith("http")) {
+        // ✅ Avatar fotoğrafını yükleme - HTTP kontrolü iyileştirildi
+        if (message.senderAvatar.isNotEmpty()) {
             try {
-                println("DEBUG: Avatar URL yükleniyor: ${message.senderAvatar}")
+                println("DEBUG: Chat Avatar URL yükleniyor: ${message.senderAvatar}")
 
                 // Avatar fotoğrafı için ImageView
                 val avatarImageView = android.widget.ImageView(context)
@@ -506,16 +506,16 @@ class ChatAdapter(
                 shape.setColor(androidx.core.content.ContextCompat.getColor(context, R.color.gray_light))
                 avatarImageView.background = shape
 
-                // URI'dan fotoğraf yükleme
+                // URI'dan fotoğraf yükleme - HTTP veya content URI
                 val uri = android.net.Uri.parse(message.senderAvatar)
                 avatarImageView.setImageURI(uri)
 
                 avatarFrame.addView(avatarImageView)
                 avatarLoaded = true
-                println("DEBUG: ✅ Avatar fotoğrafı başarıyla yüklendi")
+                println("DEBUG: ✅ Chat avatar fotoğrafı başarıyla yüklendi")
 
             } catch (e: Exception) {
-                println("DEBUG: Avatar fotoğraf yükleme hatası: ${e.message}")
+                println("DEBUG: Chat avatar fotoğraf yükleme hatası: ${e.message}")
                 avatarLoaded = false
             }
         }

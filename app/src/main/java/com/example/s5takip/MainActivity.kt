@@ -252,13 +252,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Avatar harfini göster
+     * Avatar harfini göster - DÜZELTILMIŞ: önce fotoğrafı dene
      */
     private fun showAvatarLetter(user: com.google.firebase.auth.FirebaseUser) {
+        // ✅ Önce profil fotoğrafını yüklemeyi dene
+        val photoUrl = user.photoUrl
+        if (photoUrl != null) {
+            try {
+                println("DEBUG: Profil fotoğrafı yükleniyor: $photoUrl")
+                binding.ivUserProfile.setImageURI(photoUrl)
+                binding.ivUserProfile.visibility = View.VISIBLE
+                binding.tvAvatarLetter.visibility = View.GONE
+                println("DEBUG: ✅ Profil fotoğrafı başarıyla yüklendi")
+                return
+            } catch (e: Exception) {
+                println("DEBUG: Profil fotoğrafı yükleme hatası: ${e.message}")
+            }
+        }
+
+        // Fotoğraf yüklenemediyse harf göster
         val firstLetter = (user.displayName?.take(1) ?: user.email?.take(1) ?: "U").uppercase()
         binding.tvAvatarLetter.text = firstLetter
         binding.tvAvatarLetter.visibility = View.VISIBLE
         binding.ivUserProfile.visibility = View.GONE
+        println("DEBUG: Avatar harf gösteriliyor: $firstLetter")
     }
 
     /**
