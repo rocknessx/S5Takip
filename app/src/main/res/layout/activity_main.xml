@@ -12,32 +12,41 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Üst kısım - Grup Bilgisi ve Ayarlar -->
+        <!-- ✅ İYİLEŞTİRİLMİŞ Üst kısım - Grup Bilgisi ve Ayarlar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@color/primary"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:padding="20dp"
+            android:elevation="4dp">
 
-            <!-- ✅ GERİ BUTONU VE GRUP ADI -->
+            <!-- ✅ DAHA GÜZEL GERİ BUTONU VE GRUP ADI -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
 
-                <!-- Geri Butonu -->
-                <Button
+                <!-- ✅ Güzel Tasarım Geri Butonu -->
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_back_to_groups"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="36dp"
                     android:text="← Gruplar"
                     android:textSize="12sp"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:textColor="@color/white"
-                    android:layout_marginEnd="16dp" />
+                    android:backgroundTint="@android:color/transparent"
+                    app:strokeColor="@color/white"
+                    app:strokeWidth="1dp"
+                    app:cornerRadius="18dp"
+                    android:layout_marginEnd="12dp"
+                    app:icon="@android:drawable/ic_menu_revert"
+                    app:iconTint="@color/white"
+                    app:iconSize="16dp" />
 
+                <!-- Grup Adı ve Bilgisi -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -50,69 +59,101 @@
                         android:layout_height="wrap_content"
                         android:text="Grup Adı"
                         android:textColor="@color/white"
-                        android:textSize="24sp"
+                        android:textSize="20sp"
                         android:textStyle="bold"
-                        android:visibility="visible" />
+                        android:visibility="visible"
+                        android:drawableStart="@android:drawable/ic_menu_myplaces"
+                        android:drawableTint="@color/white"
+                        android:drawablePadding="8dp" />
+
+                    <TextView
+                        android:id="@+id/tv_welcome"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Hoş Geldiniz"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:alpha="0.9" />
 
                 </LinearLayout>
 
-                <!-- Grup Ayarları Butonu -->
-                <Button
+                <!-- ✅ Güzel Grup Ayarları Butonu -->
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_group_settings"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="⚙️ Ayarlar"
-                    android:textSize="12sp"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_height="36dp"
+                    android:text="Ayarlar"
+                    android:textSize="11sp"
                     android:textColor="@color/white"
+                    android:backgroundTint="@android:color/transparent"
+                    app:strokeColor="@color/white"
+                    app:strokeWidth="1dp"
+                    app:cornerRadius="18dp"
+                    app:icon="@android:drawable/ic_menu_preferences"
+                    app:iconTint="@color/white"
+                    app:iconSize="14dp"
                     android:visibility="visible" />
 
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/tv_welcome"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Hoş Geldiniz"
-                android:textColor="@color/white"
-                android:textSize="16sp" />
-
+            <!-- Tarih Bilgisi -->
             <TextView
                 android:id="@+id/tv_date"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text=""
+                android:text="Bugün"
                 android:textColor="@color/white"
-                android:textSize="14sp" />
-
-            <!-- Bugünün Denetmeni -->
-            <TextView
-                android:id="@+id/tv_todays_auditor"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Bugün Denetmen: Yükleniyor..."
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/tv_auditor_info"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Denetmen bilgisi"
-                android:textColor="@color/white"
-                android:textSize="12sp"
+                android:textSize="14sp"
                 android:alpha="0.8"
-                android:visibility="gone" />
+                android:drawableStart="@android:drawable/ic_menu_today"
+                android:drawableTint="@color/white"
+                android:drawablePadding="6dp"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Bugünün Denetmeni Kartı -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#20FFFFFF"
+                android:layout_marginTop="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:id="@+id/tv_todays_auditor"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🔍 Bugün Denetmen: Yükleniyor..."
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:visibility="visible" />
+
+                    <TextView
+                        android:id="@+id/tv_auditor_info"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Denetmen bilgisi yükleniyor..."
+                        android:textColor="@color/white"
+                        android:textSize="11sp"
+                        android:alpha="0.8"
+                        android:visibility="visible" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
 
         </LinearLayout>
 
-        <!-- İstatistik Kartları -->
+        <!-- ✅ İyileştirilmiş İstatistik Kartları -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -122,7 +163,7 @@
             <!-- Toplam Problem Kartı -->
             <androidx.cardview.widget.CardView
                 android:layout_width="0dp"
-                android:layout_height="120dp"
+                android:layout_height="100dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="8dp"
                 app:cardCornerRadius="12dp"
@@ -133,23 +174,25 @@
                     android:layout_height="match_parent"
                     android:orientation="vertical"
                     android:gravity="center"
-                    android:padding="16dp">
+                    android:padding="12dp"
+                    android:background="@drawable/gradient_primary">
 
                     <TextView
                         android:id="@+id/tv_total_problems"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
-                        android:textSize="36sp"
+                        android:textSize="28sp"
                         android:textStyle="bold"
-                        android:textColor="@color/primary" />
+                        android:textColor="@color/white" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Toplam Problem"
-                        android:textSize="12sp"
-                        android:textColor="@color/gray_dark"
+                        android:text="📊 Toplam"
+                        android:textSize="11sp"
+                        android:textColor="@color/white"
+                        android:alpha="0.9"
                         android:textAlignment="center" />
 
                 </LinearLayout>
@@ -159,7 +202,7 @@
             <!-- Çözülen Problem Kartı -->
             <androidx.cardview.widget.CardView
                 android:layout_width="0dp"
-                android:layout_height="120dp"
+                android:layout_height="100dp"
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 app:cardCornerRadius="12dp"
@@ -170,23 +213,25 @@
                     android:layout_height="match_parent"
                     android:orientation="vertical"
                     android:gravity="center"
-                    android:padding="16dp">
+                    android:padding="12dp"
+                    android:background="@drawable/gradient_success">
 
                     <TextView
                         android:id="@+id/tv_resolved_problems"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
-                        android:textSize="36sp"
+                        android:textSize="28sp"
                         android:textStyle="bold"
-                        android:textColor="@color/status_resolved" />
+                        android:textColor="@color/white" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Çözülen"
-                        android:textSize="12sp"
-                        android:textColor="@color/gray_dark"
+                        android:text="✅ Çözülen"
+                        android:textSize="11sp"
+                        android:textColor="@color/white"
+                        android:alpha="0.9"
                         android:textAlignment="center" />
 
                 </LinearLayout>
@@ -199,135 +244,11 @@
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="6dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Çözüm Oranı"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/gray_dark" />
-
-                <TextView
-                    android:id="@+id/tv_resolution_rate"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="0%"
-                    android:textSize="32sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/accent" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Bugünkü problemlerin çözülme oranı"
-                    android:textSize="12sp"
-                    android:textColor="@color/gray_dark" />
-
-            </LinearLayout>
-
-        </androidx.cardview.widget.CardView>
-
-        <!-- Hızlı İşlemler -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="6dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Hızlı İşlemler"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/gray_dark"
-                    android:layout_marginBottom="16dp" />
-
-                <!-- Butonlar -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <!-- Problem Ekle Butonu -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_add_problem"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:text="@string/add_problem"
-                        android:textSize="16sp"
-                        app:icon="@android:drawable/ic_menu_camera"
-                        app:iconGravity="start"
-                        style="@style/Widget.MaterialComponents.Button" />
-
-                    <!-- Problemleri Görüntüle Butonu -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_view_problems"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:text="@string/problems"
-                        android:textSize="16sp"
-                        app:icon="@android:drawable/ic_menu_view"
-                        app:iconGravity="start"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                    <!-- Rapor Oluştur Butonu -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_generate_report"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:text="@string/reports"
-                        android:textSize="16sp"
-                        app:icon="@android:drawable/ic_menu_save"
-                        app:iconGravity="start"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                    <!-- Grup Sohbeti Butonu -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_group_chat"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="💬 Grup Sohbeti"
-                        android:textSize="16sp"
-                        app:icon="@android:drawable/ic_menu_send"
-                        app:iconGravity="start"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </androidx.cardview.widget.CardView>
-
-        <!-- Kullanıcı Profili Kartı -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="6dp">
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp"
+            app:cardBackgroundColor="@color/accent">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -336,10 +257,171 @@
                 android:padding="20dp"
                 android:gravity="center_vertical">
 
-                <!-- Profil Fotoğrafı Container -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎯 Çözüm Başarısı"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Bugünkü problemlerin çözülme oranı"
+                        android:textSize="12sp"
+                        android:textColor="@color/white"
+                        android:alpha="0.8" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_resolution_rate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0%"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/white" />
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- ✅ İyileştirilmiş Hızlı İşlemler -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚡ Hızlı İşlemler"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- ✅ Güzel Butonlar Grid -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- İlk Satır -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <!-- Problem Ekle Butonu -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_add_problem"
+                            android:layout_width="0dp"
+                            android:layout_height="60dp"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="6dp"
+                            android:text="Problem Ekle"
+                            android:textSize="14sp"
+                            app:icon="@android:drawable/ic_menu_camera"
+                            app:iconGravity="top"
+                            app:cornerRadius="12dp"
+                            android:backgroundTint="@color/primary" />
+
+                        <!-- Problemleri Görüntüle Butonu -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_view_problems"
+                            android:layout_width="0dp"
+                            android:layout_height="60dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="6dp"
+                            android:text="Problemler"
+                            android:textSize="14sp"
+                            app:icon="@android:drawable/ic_menu_view"
+                            app:iconGravity="top"
+                            app:cornerRadius="12dp"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+                    </LinearLayout>
+
+                    <!-- İkinci Satır -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <!-- Rapor Butonu -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_generate_report"
+                            android:layout_width="0dp"
+                            android:layout_height="60dp"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="6dp"
+                            android:text="Raporlar"
+                            android:textSize="14sp"
+                            app:icon="@android:drawable/ic_menu_save"
+                            app:iconGravity="top"
+                            app:cornerRadius="12dp"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+                        <!-- Grup Sohbeti Butonu -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_group_chat"
+                            android:layout_width="0dp"
+                            android:layout_height="60dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="6dp"
+                            android:text="Sohbet"
+                            android:textSize="14sp"
+                            app:icon="@android:drawable/ic_menu_send"
+                            app:iconGravity="top"
+                            app:cornerRadius="12dp"
+                            android:backgroundTint="@color/accent" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- ✅ İyileştirilmiş Kullanıcı Profili Kartı -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="20dp"
+                android:gravity="center_vertical">
+
+                <!-- ✅ Güzel Profil Fotoğrafı Container -->
                 <FrameLayout
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
                     android:layout_marginEnd="16dp">
 
                     <!-- Profil Fotoğrafı -->
@@ -348,7 +430,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:scaleType="centerCrop"
-                        android:background="@color/gray_light"
+                        android:background="@drawable/circle_background"
                         android:visibility="visible" />
 
                     <!-- Avatar Harfi (fotoğraf yoksa) -->
@@ -360,7 +442,7 @@
                         android:textSize="24sp"
                         android:textStyle="bold"
                         android:textColor="@color/white"
-                        android:background="@color/primary"
+                        android:background="@drawable/circle_background"
                         android:gravity="center"
                         android:visibility="gone" />
 
@@ -386,9 +468,9 @@
                         android:id="@+id/tv_user_email"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="2dp"
                         android:text="user@example.com"
-                        android:textSize="14sp"
+                        android:textSize="13sp"
                         android:textColor="@color/gray_dark" />
 
                 </LinearLayout>
@@ -403,19 +485,22 @@
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_edit_profile"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_height="36dp"
                         android:layout_marginBottom="4dp"
                         android:text="Düzenle"
-                        android:textSize="12sp"
+                        android:textSize="11sp"
+                        app:cornerRadius="18dp"
                         style="@style/Widget.MaterialComponents.Button.TextButton" />
 
                     <!-- Çıkış Butonu -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_logout"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_height="36dp"
                         android:text="Çıkış"
-                        android:textSize="12sp"
+                        android:textSize="11sp"
+                        android:textColor="@color/accent"
+                        app:cornerRadius="18dp"
                         style="@style/Widget.MaterialComponents.Button.TextButton" />
 
                 </LinearLayout>

@@ -346,6 +346,17 @@ class MainActivity : AppCompatActivity() {
             startActivityForResult(intent, GROUP_SETTINGS_REQUEST)
         }
 
+        // ✅ YENİ: Geri butonu - Grup seçim ekranına dön
+        binding.btnBackToGroups.setOnClickListener {
+            println("DEBUG: Geri butonu tıklandı, GroupSelectionActivity'ye dönülüyor")
+
+            // Grup seçim ekranına dön
+            val intent = Intent(this@MainActivity, GroupSelectionActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
+            finish() // Mevcut activity'yi kapat
+        }
+
         // Profil düzenleme butonu
         binding.btnEditProfile.setOnClickListener {
             val intent = Intent(this, EditProfileActivity::class.java)
