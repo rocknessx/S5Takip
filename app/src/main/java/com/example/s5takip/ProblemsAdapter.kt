@@ -2,6 +2,7 @@ package com.fabrika.s5takip
 
 import android.view.LayoutInflater
 import android.view.View
+import android.content.Intent
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
@@ -43,24 +44,7 @@ class ProblemsAdapter(
         val problem = problems[position]
         val context = holder.itemView.context
 
-        // Problem ID (kısa versiyon)
-        holder.tvProblemId.text = "Problem #${problem.id.take(8)}"
-
-        // Problem durumu
-        holder.tvProblemStatus.text = problem.status.toTurkish()
-        holder.tvProblemStatus.setBackgroundColor(getStatusColor(problem.status, context))
-
-        // Problem açıklaması
-        holder.tvProblemDescription.text = problem.description
-
-        // Konum
-        holder.tvProblemLocation.text = "📍 ${problem.location}"
-
-        // Zaman
-        holder.tvProblemTime.text = formatTime(problem.createdAt)
-
-        // Denetmen bilgisi
-        holder.tvAuditorName.text = "Denetmen: ${problem.auditorName}"
+        // ... mevcut kod ...
 
         // Problem fotoğrafı
         if (problem.imagePath.isNotEmpty()) {
@@ -69,12 +53,18 @@ class ProblemsAdapter(
             holder.ivProblemPhoto.setImageResource(android.R.drawable.ic_menu_gallery)
         }
 
-        // ✅ ÇÖZÜM SAYISINI VERİTABANINDAN AL
+        // ✅ FOTOĞRAFA TIKLAMA - Problem detayına git
+        holder.ivProblemPhoto.setOnClickListener {
+            // Problem detayına git
+            onViewDetailsClick(problem)
+        }
+
+        // ✅ Çözüm sayısını veritabanından al
         val solutionCount = try {
             val solutions = databaseHelper.getSolutionsForProblem(problem.id)
             solutions.size
         } catch (e: Exception) {
-            0 // Hata durumunda 0
+            0
         }
 
         // Çözüm sayısını göster
@@ -84,9 +74,6 @@ class ProblemsAdapter(
             else -> "💡 $solutionCount çözüm önerisi"
         }
         holder.tvSolutionsCount.text = solutionText
-
-        // Debug log
-        println("DEBUG: Problem ${problem.id.take(8)} için çözüm sayısı: $solutionCount")
 
         // Buton click'leri
         holder.btnAddSolution.setOnClickListener {
@@ -127,4 +114,6 @@ class ProblemsAdapter(
         val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
         return sdf.format(java.util.Date(timestamp))
     }
+
+
 }

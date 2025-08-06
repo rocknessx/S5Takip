@@ -38,7 +38,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Başlangıç ayarları
         initializeComponents()
         loadGroupInfo()
         loadTodaysAuditor()
@@ -87,7 +86,6 @@ class MainActivity : AppCompatActivity() {
                 if (result.isSuccess) {
                     val weeklyAuditors = result.getOrNull() ?: emptyList()
 
-                    // Bugünün günü (1=Pazartesi, 7=Pazar) - DÜZELTILMIŞ HESAPLAMA
                     val calendar = Calendar.getInstance()
                     val dayOfWeek = when (calendar.get(Calendar.DAY_OF_WEEK)) {
                         Calendar.MONDAY -> 1
@@ -95,32 +93,24 @@ class MainActivity : AppCompatActivity() {
                         Calendar.WEDNESDAY -> 3
                         Calendar.THURSDAY -> 4
                         Calendar.FRIDAY -> 5
-                        Calendar.SATURDAY -> 6    // ✅ Cumartesi düzeltildi
-                        Calendar.SUNDAY -> 7      // ✅ Pazar düzeltildi
+                        Calendar.SATURDAY -> 6
+                        Calendar.SUNDAY -> 7
                         else -> 1
                     }
 
-                    println("DEBUG: Bugünün gün numarası: $dayOfWeek")
-
-                    // Bugünün denetmenini bul
                     val todaysAuditorAssignment = weeklyAuditors.find { it.weekDay == dayOfWeek }
-                    println("DEBUG: Bugün için atanmış denetmen: ${todaysAuditorAssignment?.auditorName}")
 
                     if (todaysAuditorAssignment != null) {
-                        // Grup üyelerini getir ve bugünün denetmenini bul
                         val membersResult = firebaseManager.getGroupMembers(currentGroupId)
                         if (membersResult.isSuccess) {
                             val members = membersResult.getOrNull() ?: emptyList()
                             todaysAuditor = members.find { it.userId == todaysAuditorAssignment.auditorId }
-
-                            println("DEBUG: Bugünün denetmeni bulundu: ${todaysAuditor?.userName}")
 
                             runOnUiThread {
                                 updateTodaysAuditorDisplay()
                             }
                         }
                     } else {
-                        println("DEBUG: Bugün için atanmış denetmen yok")
                         runOnUiThread {
                             updateTodaysAuditorDisplay()
                         }
@@ -138,7 +128,6 @@ class MainActivity : AppCompatActivity() {
     private fun updateTodaysAuditorDisplay() {
         val currentFirebaseUser = FirebaseAuth.getInstance().currentUser
 
-        // Grup sahibi ve yönetici kontrolü
         var isGroupOwner = false
         var isGroupAdmin = false
 
@@ -152,8 +141,6 @@ class MainActivity : AppCompatActivity() {
 
                         isGroupOwner = currentUserMember?.role == GroupRoles.OWNER
                         isGroupAdmin = currentUserMember?.role == GroupRoles.ADMIN
-
-                        println("DEBUG: Kullanıcı yetkileri - Owner: $isGroupOwner, Admin: $isGroupAdmin")
 
                         runOnUiThread {
                             updateProblemAddPermission(isGroupOwner, isGroupAdmin)
@@ -169,7 +156,6 @@ class MainActivity : AppCompatActivity() {
             binding.tvTodaysAuditor.text = "Bugün Denetmen: ${todaysAuditor!!.userName}"
             binding.tvTodaysAuditor.visibility = View.VISIBLE
 
-            // Bugünün denetmeni, grup sahibi veya yönetici problem ekleyebilir
             val isTodaysAuditor = currentFirebaseUser?.uid == todaysAuditor!!.userId
             val canAddProblem = isTodaysAuditor || isGroupOwner || isGroupAdmin
 
@@ -198,7 +184,6 @@ class MainActivity : AppCompatActivity() {
             binding.tvTodaysAuditor.text = "Bugün için atanmış denetmen yok"
             binding.tvTodaysAuditor.visibility = View.VISIBLE
 
-            // Grup sahibi veya yönetici denetmen atanmamış olsa bile problem ekleyebilir
             val canAddProblem = isGroupOwner || isGroupAdmin
             binding.btnAddProblem.isEnabled = canAddProblem
             binding.btnAddProblem.alpha = if (canAddProblem) 1.0f else 0.5f

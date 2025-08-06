@@ -15,6 +15,9 @@ import com.fabrika.s5takip.databinding.ActivityGroupChatBinding
 import com.github.dhaval2404.imagepicker.ImagePicker
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.*
 
 /**
@@ -95,9 +98,13 @@ class GroupChatActivity : AppCompatActivity() {
      * RecyclerView'ı ayarla
      */
     private fun setupRecyclerView() {
-        chatAdapter = ChatAdapter(chatMessages)
+        chatAdapter = ChatAdapter(
+            messages = chatMessages,
+            onUserClick = { message ->
+                showUserInfoDialog(message)
+            }
+        )
         binding.rvChatMessages.layoutManager = LinearLayoutManager(this).apply {
-            // Yeni mesajlar altta görünsün
             stackFromEnd = true
         }
         binding.rvChatMessages.adapter = chatAdapter
@@ -121,6 +128,91 @@ class GroupChatActivity : AppCompatActivity() {
         binding.btnRefreshChat.setOnClickListener {
             loadChatMessages()
         }
+    }
+
+    /**
+     * Kullanıcı bilgilerini göster
+     */
+    private fun showUserInfoDialog(message: ChatMessage) {
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+        val isSelf = message.senderId == currentUserId
+
+        val dialogTitle = if (isSelf) "Profil Bilgileriniz" else "Kullanıcı Bilgileri"
+
+        // Grup üyelerinden detaylı bilgi al
+        lifecycleScope.launch {
+            try {
+                val membersResult = firebaseManager.getGroupMembers(groupId)
+                if (membersResult.isSuccess) {
+                    val members = membersResult.getOrNull() ?: emptyList()
+                    val member = members.find { it.userId == message.senderId }
+
+                    runOnUiThread {
+                        if (member != null) {
+                            showMemberInfoDialog(member, dialogTitle)
+                        } else {
+                            // Üye bilgisi bulunamazsa basit dialog göster
+                            showSimpleUserDialog(message, dialogTitle)
+                        }
+                    }
+                } else {
+                    runOnUiThread {
+                        showSimpleUserDialog(message, dialogTitle)
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    showSimpleUserDialog(message, dialogTitle)
+                }
+            }
+        }
+    }
+
+    /**
+     * Detaylı üye bilgileri dialog'u
+     */
+    private fun showMemberInfoDialog(member: GroupMember, title: String) {
+        val roleText = when (member.role) {
+            GroupRoles.OWNER -> "👑 Grup Sahibi"
+            GroupRoles.ADMIN -> "⭐ Yönetici"
+            else -> "👤 Üye"
+        }
+
+        val joinDate = java.text.SimpleDateFormat("dd MMMM yyyy", Locale("tr", "TR"))
+            .format(Date(member.joinedAt))
+
+        val message = """
+        👤 Ad: ${member.userName}
+        📧 E-posta: ${member.userEmail}
+        🏷️ Rol: $roleText
+        📅 Katılma Tarihi: $joinDate
+    """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("Tamam", null)
+            .show()
+    }
+
+    /**
+     * Basit kullanıcı bilgileri dialog'u
+     */
+    private fun showSimpleUserDialog(chatMessage: ChatMessage, title: String) {
+        val sendTime = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+            .format(Date(chatMessage.createdAt))
+
+        val message = """
+        👤 Ad: ${chatMessage.senderName}
+        💬 Son Mesaj: ${if (chatMessage.messageType == "IMAGE") "📷 Fotoğraf" else chatMessage.message.take(50)}
+        🕐 Gönderim: $sendTime
+    """.trimIndent()
+
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("Tamam", null)
+            .show()
     }
 
     /**
@@ -435,7 +527,8 @@ class GroupChatActivity : AppCompatActivity() {
  * Chat mesajları için adapter - Avatar Fotoğrafı Destekli Final Versiyon - GÜNCELLENMIŞ
  */
 class ChatAdapter(
-    private val messages: List<ChatMessage>
+    private val messages: List<ChatMessage>,
+    private val onUserClick: ((ChatMessage) -> Unit)? = null // Kullanıcıya tıklama callback'i
 ) : androidx.recyclerview.widget.RecyclerView.Adapter<ChatAdapter.MessageViewHolder>() {
 
     class MessageViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
@@ -483,9 +576,14 @@ class ChatAdapter(
             )
         }
 
-        // ✅ AVATAR CONTAINER - Geliştirilmiş fotoğraf desteği ile - GÜNCELLENMIŞ
+        // ✅ AVATAR CONTAINER - Geliştirilmiş fotoğraf desteği ile
         val avatarFrame = android.widget.FrameLayout(context)
         avatarFrame.layoutParams = android.widget.LinearLayout.LayoutParams(48, 48)
+
+        // Avatar tıklama olayını ekle
+        avatarFrame.setOnClickListener {
+            onUserClick?.invoke(message)
+        }
 
         // Avatar fotoğrafını yüklemeyi dene
         var avatarLoaded = false

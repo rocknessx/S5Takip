@@ -28,6 +28,8 @@ android {
         }
     }
 
+
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -106,6 +108,7 @@ dependencies {
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.activity:activity-ktx:1.8.2")
+    implementation ("org.jetbrains.kotlin:kotlin-stdlib:1.9.0") // veya güncel sürüm
 
     // Test kütüphaneleri
     testImplementation("junit:junit:4.13.2")

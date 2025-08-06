@@ -43,11 +43,13 @@ class ProblemDetailActivity : AppCompatActivity() {
         loadCurrentUser()
         loadProblem()
         setupClickListeners()
+        setupPhotoClickListeners() // ✅ BU SATIRI EKLEYİN
 
         // Başlık çubuğunu ayarla
         supportActionBar?.title = "Problem Detayı"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
     }
+
 
     /**
      * Bileşenleri başlat
@@ -169,6 +171,19 @@ class ProblemDetailActivity : AppCompatActivity() {
             println("DEBUG: Çözüm yükleme hatası: ${e.message}")
             Toast.makeText(this, "Çözümler yüklenirken hata: ${e.message}", Toast.LENGTH_SHORT).show()
             e.printStackTrace()
+        }
+    }
+
+    // ✅ YENİ METOD - Fotoğraf tıklama özelliği
+    private fun setupPhotoClickListeners() {
+        // Problem fotoğrafına tıklama
+        binding.ivDetailProblemPhoto.setOnClickListener {
+            if (problem?.imagePath?.isNotEmpty() == true) {
+                val intent = Intent(this, PhotoViewerActivity::class.java)
+                intent.putExtra(PhotoViewerActivity.EXTRA_PHOTO_PATH, problem!!.imagePath)
+                intent.putExtra(PhotoViewerActivity.EXTRA_PHOTO_TITLE, "Problem Fotoğrafı")
+                startActivity(intent)
+            }
         }
     }
 
@@ -440,7 +455,6 @@ class SolutionsAdapter(
 
         innerLayout.addView(descText)
 
-        // Fotoğraf varsa ekle
         if (solution.imagePath.isNotEmpty()) {
             val imageView = android.widget.ImageView(context)
             val imageParams = LinearLayout.LayoutParams(
@@ -452,6 +466,15 @@ class SolutionsAdapter(
             imageView.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
 
             photoManager.loadPhoto(solution.imagePath, imageView)
+
+            // ✅ ÇÖZÜM FOTOĞRAFINA TIKLAMA
+            imageView.setOnClickListener {
+                val intent = Intent(context, PhotoViewerActivity::class.java)
+                intent.putExtra(PhotoViewerActivity.EXTRA_PHOTO_PATH, solution.imagePath)
+                intent.putExtra(PhotoViewerActivity.EXTRA_PHOTO_TITLE, "Çözüm ${position + 1}")
+                context.startActivity(intent)
+            }
+
             innerLayout.addView(imageView)
         }
 

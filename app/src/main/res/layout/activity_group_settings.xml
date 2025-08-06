@@ -13,6 +13,30 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- ✅ YENİ: Gruptan Ayrıl Butonu (Normal üyeler ve adminler için) -->
+        <Button
+            android:id="@+id/btn_leave_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="🚪 Gruptan Ayrıl"
+            android:textSize="14sp"
+            android:backgroundTint="#FF9800"
+            android:textColor="@color/white"
+            android:visibility="gone" />
+
+        <!-- Grup Silme Butonu (Sadece Grup Sahibi İçin) -->
+        <Button
+            android:id="@+id/btn_delete_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="🗑️ Grubu Sil"
+            android:textSize="14sp"
+            android:backgroundTint="#F44336"
+            android:textColor="@color/white"
+            android:visibility="gone" />
+
         <!-- Grup Bilgileri -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
@@ -115,17 +139,7 @@
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Grup Silme Butonu (Sadece Grup Sahibi İçin) -->
-        <Button
-            android:id="@+id/btn_delete_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="🗑️ Grubu Sil"
-            android:textSize="14sp"
-            android:backgroundTint="#F44336"
-            android:textColor="@color/white"
-            android:visibility="gone" />
+
 
         <!-- ✅ Haftalık Denetmen Programı - 7 GÜN ZORLA GÖSTERİM -->
         <androidx.cardview.widget.CardView

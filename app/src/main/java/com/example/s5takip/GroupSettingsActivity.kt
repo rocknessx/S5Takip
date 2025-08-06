@@ -38,7 +38,7 @@ class GroupSettingsActivity : AppCompatActivity() {
     // Basit yetki kontrolleri
     private var currentUserRole: String = GroupRoles.MEMBER
     private var canManageAuditors: Boolean = false
-
+    private var currentUserMembership: GroupMember? = null
     companion object {
         private const val GROUP_SETTINGS_REQUEST = 1002
     }
@@ -48,11 +48,9 @@ class GroupSettingsActivity : AppCompatActivity() {
         binding = ActivityGroupSettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Intent'ten grup bilgilerini al
         groupId = intent.getStringExtra("group_id") ?: ""
         groupName = intent.getStringExtra("group_name") ?: "Grup"
 
-        // Grup objesi oluştur (silme işlemi için gerekli)
         if (groupId.isNotEmpty()) {
             selectedGroup = Group(
                 id = groupId,
@@ -66,73 +64,206 @@ class GroupSettingsActivity : AppCompatActivity() {
             return
         }
 
-        // Firebase manager'ı başlat
         firebaseManager = FirebaseManager.getInstance()
 
-        // UI'ı ayarla
         setupUI()
         setupRecyclerViews()
         setupClickListeners()
         loadGroupData()
 
-        // Başlık çubuğunu ayarla
         supportActionBar?.title = "$groupName - Ayarlar"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-
-        println("DEBUG: ✅ GroupSettingsActivity başlatıldı - Her zaman 7 gün gösterilecek")
     }
 
-    /**
-     * UI'ı ayarla
-     */
     private fun setupUI() {
         binding.tvGroupNameTitle.text = groupName
         binding.btnShareInviteCode.visibility = View.GONE
         binding.btnDeleteGroup.visibility = View.GONE
+        binding.btnLeaveGroup.visibility = View.GONE // Başlangıçta gizli
     }
 
-    /**
-     * RecyclerView'ları ayarla - 7 GÜN ZORLA GÖSTERİM
-     */
     private fun setupRecyclerViews() {
-        println("DEBUG: ==================== RECYCLERVIEW SETUP - 7 GÜN ZORLA====================")
-
-        // Grup üyeleri adapter - Rol değiştirme için güncellenmiş
-        membersAdapter = GroupMembersAdapter(groupMembers) { member ->
-            println("DEBUG: Üyeye tıklandı: ${member.userName} (${member.role})")
-
-            // OWNER ise rol değiştirme dialog'u, değilse profil göster
-            if (currentUserRole == GroupRoles.OWNER && member.role != GroupRoles.OWNER) {
-                showMemberRoleDialog(member)
-            } else {
-                showMemberProfile(member)
-            }
-        }
+        // Grup üyeleri adapter - Üye atma özelliği ile güncellenmiş
+        membersAdapter = GroupMembersAdapter(groupMembers,
+            onMemberClick = { member ->
+                when {
+                    // OWNER ise rol değiştirme veya atma
+                    currentUserRole == GroupRoles.OWNER && member.userId != FirebaseAuth.getInstance().currentUser?.uid -> {
+                        showMemberOptionsDialog(member)
+                    }
+                    // ADMIN ise normal üyeleri atabilir
+                    currentUserRole == GroupRoles.ADMIN && member.role == GroupRoles.MEMBER -> {
+                        showMemberOptionsDialog(member)
+                    }
+                    // Diğer durumlarda sadece profil göster
+                    else -> {
+                        showMemberProfile(member)
+                    }
+                }
+            },
+            currentUserRole = currentUserRole // Adapter'a rol bilgisi gönder
+        )
         binding.rvGroupMembers.layoutManager = LinearLayoutManager(this)
         binding.rvGroupMembers.adapter = membersAdapter
 
-        // ✅ YENİ: Haftalık program adapter - 7 GÜN ZORLA GÖSTERİM
+        // Haftalık program adapter
         weeklyScheduleAdapter = WeeklyScheduleAdapter(weeklyAuditors, groupMembers) { weekDay ->
-            println("DEBUG: Gün tıklandı: $weekDay (${getDayName(weekDay)})")
-            println("DEBUG: canManageAuditors: $canManageAuditors")
-
             if (canManageAuditors) {
-                println("DEBUG: Yönetici - denetmen atama dialog'u açılıyor")
                 showAuditorSelectionDialog(weekDay)
             } else {
-                println("DEBUG: Normal kullanıcı - sadece görüntüleme")
                 showReadOnlyScheduleInfo(weekDay)
             }
         }
         binding.rvWeeklySchedule.layoutManager = LinearLayoutManager(this)
         binding.rvWeeklySchedule.adapter = weeklyScheduleAdapter
-
-        println("DEBUG: ✅ RecyclerView'lar başarıyla ayarlandı - WeeklyScheduleAdapter her zaman 7 gün gösterecek")
     }
 
     /**
-     * Click listener'ları ayarla
+     * ✅ YENİ: Üye seçenekleri dialog'u (Rol değiştir veya At)
      */
+    private fun showMemberOptionsDialog(member: GroupMember) {
+        val options = mutableListOf<String>()
+
+        // OWNER her şeyi yapabilir
+        if (currentUserRole == GroupRoles.OWNER) {
+            if (member.role != GroupRoles.OWNER) {
+                options.add("👤 Rol Değiştir")
+                options.add("🚫 Gruptan At")
+            }
+        }
+        // ADMIN sadece normal üyeleri atabilir
+        else if (currentUserRole == GroupRoles.ADMIN && member.role == GroupRoles.MEMBER) {
+            options.add("🚫 Gruptan At")
+        }
+
+        if (options.isEmpty()) {
+            showMemberProfile(member)
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(member.userName)
+            .setItems(options.toTypedArray()) { _, which ->
+                when (options[which]) {
+                    "👤 Rol Değiştir" -> showMemberRoleDialog(member)
+                    "🚫 Gruptan At" -> showRemoveMemberConfirmation(member)
+                }
+            }
+            .setNegativeButton("İptal", null)
+            .show()
+    }
+
+    /**
+     * ✅ YENİ: Üyeyi gruptan atma onayı
+     */
+    private fun showRemoveMemberConfirmation(member: GroupMember) {
+        AlertDialog.Builder(this)
+            .setTitle("Üyeyi Gruptan At")
+            .setMessage("${member.userName} kişisini gruptan atmak istediğinize emin misiniz?\n\nBu işlem geri alınamaz.")
+            .setPositiveButton("🚫 Evet, At") { _, _ ->
+                removeMemberFromGroup(member)
+            }
+            .setNegativeButton("İptal", null)
+            .show()
+    }
+
+    /**
+     * ✅ YENİ: Üyeyi gruptan at
+     */
+    private fun removeMemberFromGroup(member: GroupMember) {
+        lifecycleScope.launch {
+            try {
+                val result = firebaseManager.removeMemberFromGroup(member.id, groupId)
+
+                runOnUiThread {
+                    if (result.isSuccess) {
+                        // Listeden kaldır
+                        groupMembers.remove(member)
+                        membersAdapter.notifyDataSetChanged()
+                        binding.tvMembersCount.text = "${groupMembers.size} üye"
+
+                        Toast.makeText(this@GroupSettingsActivity,
+                            "✅ ${member.userName} gruptan çıkarıldı", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this@GroupSettingsActivity,
+                            "❌ Üye çıkarılamadı: ${result.exceptionOrNull()?.message}",
+                            Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this@GroupSettingsActivity,
+                        "💥 Hata: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * ✅ YENİ: Gruptan ayrılma onayı
+     */
+    private fun showLeaveGroupConfirmation() {
+        // OWNER gruptan ayrılamaz
+        if (currentUserRole == GroupRoles.OWNER) {
+            AlertDialog.Builder(this)
+                .setTitle("Gruptan Ayrılamazsınız")
+                .setMessage("Grup sahibi olarak gruptan ayrılamazsınız.\n\nGruptan ayrılmak için önce sahipliği başka bir üyeye devretmeniz gerekir.")
+                .setPositiveButton("Tamam", null)
+                .show()
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Gruptan Ayrıl")
+            .setMessage("${groupName} grubundan ayrılmak istediğinize emin misiniz?\n\nTekrar katılmak için davet kodu gerekecek.")
+            .setPositiveButton("🚪 Evet, Ayrıl") { _, _ ->
+                leaveGroup()
+            }
+            .setNegativeButton("İptal", null)
+            .show()
+    }
+
+    /**
+     * ✅ YENİ: Gruptan ayrıl
+     */
+    private fun leaveGroup() {
+        if (currentUserMembership == null) {
+            Toast.makeText(this, "Üyelik bilgisi bulunamadı", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                val result = firebaseManager.removeMemberFromGroup(
+                    currentUserMembership!!.id,
+                    groupId
+                )
+
+                runOnUiThread {
+                    if (result.isSuccess) {
+                        Toast.makeText(this@GroupSettingsActivity,
+                            "✅ Gruptan başarıyla ayrıldınız", Toast.LENGTH_LONG).show()
+
+                        // Grup seçim ekranına dön
+                        val intent = Intent(this@GroupSettingsActivity, GroupSelectionActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                        finish()
+                    } else {
+                        Toast.makeText(this@GroupSettingsActivity,
+                            "❌ Gruptan ayrılırken hata: ${result.exceptionOrNull()?.message}",
+                            Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this@GroupSettingsActivity,
+                        "💥 Hata: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
     private fun setupClickListeners() {
         binding.btnShareInviteCode.setOnClickListener {
             shareInviteCode()
@@ -141,6 +272,11 @@ class GroupSettingsActivity : AppCompatActivity() {
         binding.btnDeleteGroup.setOnClickListener {
             showDeleteGroupConfirmation()
         }
+
+        // ✅ YENİ: Gruptan Ayrıl butonu
+        binding.btnLeaveGroup.setOnClickListener {
+            showLeaveGroupConfirmation()
+        }
     }
 
     /**
@@ -148,17 +284,12 @@ class GroupSettingsActivity : AppCompatActivity() {
      */
     private fun checkUserPermissions() {
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-        val currentUserMember = groupMembers.find { it.userId == currentUserId }
+        currentUserMembership = groupMembers.find { it.userId == currentUserId }
 
-        currentUserRole = currentUserMember?.role ?: GroupRoles.MEMBER
+        currentUserRole = currentUserMembership?.role ?: GroupRoles.MEMBER
         canManageAuditors = (currentUserRole == GroupRoles.OWNER || currentUserRole == GroupRoles.ADMIN)
 
-        println("DEBUG: ==================== YETKİ KONTROLÜ ====================")
-        println("DEBUG: Mevcut kullanıcı ID: $currentUserId")
         println("DEBUG: Mevcut kullanıcı rolü: $currentUserRole")
-        println("DEBUG: Denetmen ataması yapabilir mi: $canManageAuditors")
-        println("DEBUG: ==================================================")
-
         updateUIBasedOnPermissions()
     }
 
@@ -170,20 +301,25 @@ class GroupSettingsActivity : AppCompatActivity() {
             GroupRoles.OWNER -> {
                 binding.btnShareInviteCode.visibility = View.VISIBLE
                 binding.btnDeleteGroup.visibility = View.VISIBLE
-                binding.tvScheduleDescription.text = "👑 Grup sahibi olarak tüm ayarları yönetebilirsiniz. Günlere tıklayarak denetmen atayın."
+                binding.btnLeaveGroup.visibility = View.GONE // Owner ayrılamaz
+                binding.tvScheduleDescription.text = "👑 Grup sahibi olarak tüm ayarları yönetebilirsiniz."
             }
             GroupRoles.ADMIN -> {
                 binding.btnShareInviteCode.visibility = View.GONE
                 binding.btnDeleteGroup.visibility = View.GONE
-                binding.tvScheduleDescription.text = "⭐ Yönetici olarak denetmen atamaları yapabilirsiniz. Günlere tıklayarak denetmen atayın."
+                binding.btnLeaveGroup.visibility = View.VISIBLE // Admin ayrılabilir
+                binding.tvScheduleDescription.text = "⭐ Yönetici olarak denetmen atamaları yapabilir ve üyeleri yönetebilirsiniz."
             }
             else -> {
                 binding.btnShareInviteCode.visibility = View.GONE
                 binding.btnDeleteGroup.visibility = View.GONE
-                binding.tvScheduleDescription.text = "👤 Haftalık denetmen programını görüntülüyorsunuz. Atama yetkisi için grup sahibi ile iletişime geçin."
+                binding.btnLeaveGroup.visibility = View.VISIBLE // Normal üye ayrılabilir
+                binding.tvScheduleDescription.text = "👤 Haftalık denetmen programını görüntülüyorsunuz."
             }
         }
 
+        // Adapter'a güncel rol bilgisini gönder
+        membersAdapter.updateCurrentUserRole(currentUserRole)
         updateWeeklyScheduleTitle()
     }
 
@@ -210,7 +346,6 @@ class GroupSettingsActivity : AppCompatActivity() {
             .setTitle("${member.userName} - Rol Değiştir")
             .setSingleChoiceItems(roles, currentRoleIndex) { dialog, which ->
                 val newRole = if (which == 1) GroupRoles.ADMIN else GroupRoles.MEMBER
-
                 dialog.dismiss()
                 showConfirmRoleChange(member, newRole)
             }
@@ -245,7 +380,6 @@ class GroupSettingsActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     if (result.isSuccess) {
-                        // Listede güncelle
                         val index = groupMembers.indexOf(member)
                         if (index != -1) {
                             groupMembers[index] = updatedMember
@@ -269,6 +403,7 @@ class GroupSettingsActivity : AppCompatActivity() {
         }
     }
 
+
     /**
      * Üye profil bilgilerini göster
      */
@@ -291,6 +426,11 @@ class GroupSettingsActivity : AppCompatActivity() {
             .setMessage(message)
             .setPositiveButton("Tamam", null)
             .show()
+    }
+
+    private fun formatDate(timestamp: Long): String {
+        val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+        return sdf.format(Date(timestamp))
     }
 
     /**
@@ -729,15 +869,12 @@ class GroupSettingsActivity : AppCompatActivity() {
      */
     private fun loadGroupData() {
         binding.progressLoading.visibility = View.VISIBLE
-        println("DEBUG: ✅ Grup verileri yükleniyor - Grup ID: $groupId (7 gün zorla gösterilecek)")
 
         lifecycleScope.launch {
             try {
-                // 1. Grup üyelerini yükle
                 val membersResult = firebaseManager.getGroupMembers(groupId)
                 if (membersResult.isSuccess) {
                     val members = membersResult.getOrNull() ?: emptyList()
-                    println("DEBUG: Firebase'den ${members.size} üye alındı")
 
                     groupMembers.clear()
                     groupMembers.addAll(members)
@@ -746,18 +883,9 @@ class GroupSettingsActivity : AppCompatActivity() {
                         membersAdapter.notifyDataSetChanged()
                         binding.tvMembersCount.text = "${groupMembers.size} üye"
                         checkUserPermissions()
-                        debugGroupMembers()
-                    }
-                } else {
-                    println("DEBUG: ❌ Grup üyeleri yüklenemedi: ${membersResult.exceptionOrNull()?.message}")
-                    runOnUiThread {
-                        Toast.makeText(this@GroupSettingsActivity,
-                            "Grup üyeleri yüklenemedi: ${membersResult.exceptionOrNull()?.message}",
-                            Toast.LENGTH_LONG).show()
                     }
                 }
 
-                // 2. Haftalık denetmenleri yükle
                 val auditorsResult = firebaseManager.getWeeklyAuditors(groupId)
                 if (auditorsResult.isSuccess) {
                     val auditors = auditorsResult.getOrNull() ?: emptyList()
@@ -765,17 +893,7 @@ class GroupSettingsActivity : AppCompatActivity() {
                     weeklyAuditors.addAll(auditors)
 
                     runOnUiThread {
-                        // ✅ ZORLA 7 GÜN GÖSTERİM - Adapter her zaman 7 gün döndürür
                         weeklyScheduleAdapter.notifyDataSetChanged()
-                        println("DEBUG: ✅ Haftalık program güncellendi: ${auditors.size} atama")
-                        println("DEBUG: ✅ WeeklyScheduleAdapter HER ZAMAN 7 gün gösterecek (veriye bakılmaksızın)")
-                    }
-                } else {
-                    println("DEBUG: ❌ Haftalık denetmenler yüklenemedi: ${auditorsResult.exceptionOrNull()?.message}")
-                    // ✅ Hata olsa bile 7 gün sabit gösterilir
-                    runOnUiThread {
-                        weeklyScheduleAdapter.notifyDataSetChanged()
-                        println("DEBUG: ✅ Hata olsa bile WeeklyScheduleAdapter 7 gün gösterecek")
                     }
                 }
 
@@ -784,17 +902,10 @@ class GroupSettingsActivity : AppCompatActivity() {
                 }
 
             } catch (e: Exception) {
-                println("DEBUG: ❌ loadGroupData exception: ${e.message}")
-                e.printStackTrace()
-
                 runOnUiThread {
                     binding.progressLoading.visibility = View.GONE
                     Toast.makeText(this@GroupSettingsActivity,
                         "Veri yüklenirken hata: ${e.message}", Toast.LENGTH_SHORT).show()
-
-                    // ✅ Exception olsa bile 7 gün sabit gösterilir
-                    weeklyScheduleAdapter.notifyDataSetChanged()
-                    println("DEBUG: ✅ Exception olsa bile WeeklyScheduleAdapter 7 gün gösterecek")
                 }
             }
         }
@@ -817,8 +928,14 @@ class GroupSettingsActivity : AppCompatActivity() {
  */
 class GroupMembersAdapter(
     private val members: List<GroupMember>,
-    private val onMemberClick: (GroupMember) -> Unit
+    private val onMemberClick: (GroupMember) -> Unit,
+    private var currentUserRole: String = GroupRoles.MEMBER
 ) : androidx.recyclerview.widget.RecyclerView.Adapter<GroupMembersAdapter.MemberViewHolder>() {
+
+    fun updateCurrentUserRole(role: String) {
+        currentUserRole = role
+        notifyDataSetChanged()
+    }
 
     class MemberViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
         val cardView: androidx.cardview.widget.CardView = view as androidx.cardview.widget.CardView
@@ -843,6 +960,7 @@ class GroupMembersAdapter(
     override fun onBindViewHolder(holder: MemberViewHolder, position: Int) {
         val member = members[position]
         val context = holder.itemView.context
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
         val innerLayout = android.widget.LinearLayout(context)
         innerLayout.orientation = android.widget.LinearLayout.HORIZONTAL
@@ -866,6 +984,8 @@ class GroupMembersAdapter(
         val userInfo = android.widget.LinearLayout(context)
         userInfo.orientation = android.widget.LinearLayout.VERTICAL
         userInfo.setPadding(16, 0, 0, 0)
+        val userInfoParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        userInfo.layoutParams = userInfoParams
 
         val nameText = android.widget.TextView(context)
         nameText.text = member.userName
@@ -894,6 +1014,23 @@ class GroupMembersAdapter(
 
         innerLayout.addView(avatarFrame)
         innerLayout.addView(userInfo)
+
+        // ✅ Admin veya Owner ise ve bu kişi kendisi değilse "..." menü ikonu ekle
+        val canManageMember = when {
+            member.userId == currentUserId -> false // Kendini yönetemez
+            currentUserRole == GroupRoles.OWNER && member.role != GroupRoles.OWNER -> true
+            currentUserRole == GroupRoles.ADMIN && member.role == GroupRoles.MEMBER -> true
+            else -> false
+        }
+
+        if (canManageMember) {
+            val menuIcon = android.widget.TextView(context)
+            menuIcon.text = "⋮"
+            menuIcon.textSize = 20f
+            menuIcon.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.gray_dark))
+            menuIcon.setPadding(16, 0, 0, 0)
+            innerLayout.addView(menuIcon)
+        }
 
         holder.cardView.removeAllViews()
         holder.cardView.addView(innerLayout)

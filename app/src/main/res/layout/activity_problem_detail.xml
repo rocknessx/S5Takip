@@ -222,12 +222,34 @@
                     android:textColor="@color/gray_dark"
                     android:layout_marginBottom="8dp" />
 
-                <ImageView
-                    android:id="@+id/iv_detail_problem_photo"
+                <!-- ✅ DÜZELTİLMİŞ: Tıklanabilir fotoğraf -->
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="250dp"
-                    android:scaleType="centerCrop"
-                    android:background="@color/gray_light" />
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        android:id="@+id/iv_detail_problem_photo"
+                        android:layout_width="match_parent"
+                        android:layout_height="250dp"
+                        android:scaleType="centerCrop"
+                        android:background="@color/gray_light"
+                        android:adjustViewBounds="true"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?android:attr/selectableItemBackground" />
+
+                    <!-- Büyütme ikonu -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom|end"
+                        android:layout_margin="8dp"
+                        android:text="🔍"
+                        android:textSize="24sp"
+                        android:background="#80000000"
+                        android:padding="4dp" />
+
+                </FrameLayout>
 
             </LinearLayout>
 

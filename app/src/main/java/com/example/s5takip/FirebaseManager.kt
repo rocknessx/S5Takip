@@ -592,6 +592,39 @@ class FirebaseManager private constructor() {
     }
 
     /**
+     * Üyeyi gruptan çıkar
+     */
+    suspend fun removeMemberFromGroup(membershipId: String, groupId: String): Result<Unit> {
+        return try {
+            println("DEBUG: removeMemberFromGroup başladı - Membership ID: $membershipId, Grup ID: $groupId")
+
+            // 1. Üyelik kaydını sil
+            firestore.collection("group_members")
+                .document(membershipId)
+                .delete()
+                .await()
+
+            println("DEBUG: ✅ Üyelik kaydı silindi")
+
+            // 2. Grup üye sayısını güncelle (opsiyonel)
+            val groupRef = firestore.collection("groups").document(groupId)
+            firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(groupRef)
+                val currentCount = snapshot.getLong("memberCount") ?: 1
+                transaction.update(groupRef, "memberCount", maxOf(currentCount - 1, 0))
+            }.await()
+
+            println("DEBUG: ✅ Grup üye sayısı güncellendi")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            println("DEBUG: ❌ removeMemberFromGroup hatası: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Grup chat mesajlarını getir
      */
     suspend fun getChatMessages(groupId: String, limit: Int = 50): Result<List<ChatMessage>> {
